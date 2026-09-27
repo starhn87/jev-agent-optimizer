@@ -1,8 +1,10 @@
 # Jev Decision Kit
 
-프로젝트의 Jev 판단을 실행하고 검증·평가하는 공통 라이브러리와 CLI입니다. API 키 설정, 질문 실행, 검증된 응답 확인, 관측 결과 집계를 `jev-decision-kit` 명령으로 처리합니다. 서버 코드에 직접 붙이거나 에이전트에서 같은 CLI를 호출할 수 있습니다.
+공식 TypeSafe SDK 위에서 **응답 검증·실패 결과·관측 메타데이터의 형식을 여러 프로젝트가 공유**하도록 만든 작은 라이브러리와 시험용 CLI입니다. 모델의 판단은 Jev가 수행하고, 이 패키지는 받은 응답을 검사하고 같은 형식으로 반환합니다.
 
-기존 npm 프로젝트에 붙이려면 clone 후 바로 [프로젝트 연결 명령](#다른-저장소에-연결하기)을 실행할 수 있습니다.
+Jev를 호출하는 것만 필요하다면 [공식 SDK](https://github.com/typesafe-ai/typesafe-sdk-js)로 충분합니다. 이 패키지는 여러 앱에서 같은 응답 검사와 실패·평가 형식을 유지하려는 경우에 사용합니다. 정확도 향상이나 비용 절감은 아직 입증하지 않았습니다. [공식 SDK·Kev와의 비교와 유지할 이유](docs/purpose.md).
+
+기존 npm 프로젝트에는 clone 후 [패키지·개발 도구 설치 명령](#다른-npm-프로젝트에-설치하기)을 실행할 수 있습니다. 앱의 실제 요청 처리에 적용하는 작업은 별도로 필요합니다.
 
 ## 바로 실행하기
 
@@ -59,15 +61,28 @@ npm run doctor
 npm run cli -- --help
 ```
 
-## 다른 저장소에 연결하기
+## 다른 npm 프로젝트에 설치하기
 
-Jev Decision Kit를 clone한 폴더에서 연결할 npm 프로젝트의 경로를 한 번 지정하세요. 연결만 할 때는 이 clone의 의존성 설치나 빌드가 필요하지 않습니다.
+**`connect`는 패키지와 개발 도구를 설치하는 명령입니다. 실행해도 앱의 실제 요청 처리는 바뀌지 않습니다.** Jev Decision Kit를 clone한 폴더에서 대상 npm 프로젝트의 경로를 지정하세요. 이 clone의 의존성 설치나 빌드는 필요하지 않습니다.
 
 ```sh
 npm run connect -- ../my-app
 ```
 
-이 명령은 판단 라이브러리, 프로젝트 안에서 실행할 CLI, Codex·Claude Code 프로젝트 스킬을 함께 준비합니다. npm 로그인이나 전역 설치는 필요하지 않습니다. 연결한 프로젝트에서는 바로 다음처럼 실행합니다.
+명령이 대상 프로젝트에서 하는 일은 다음과 같습니다.
+
+| 변경 위치 | 실제 작업 |
+| --- | --- |
+| `package.json` | 판단 라이브러리를 운영 의존성, CLI를 개발 의존성으로 추가하고 `jev` npm 명령 생성 |
+| `package-lock.json`·`node_modules/` | `npm install`로 의존성 설치 및 lockfile 갱신. install/postinstall 스크립트는 실행하지 않음 |
+| `vendor/jev-decision-kit/` | 버전이 고정된 두 패키지 파일과 업데이트 확인용 `connection.json` 보관 |
+| `.agents/skills/jev-decision-kit/`·`.claude/skills/jev-decision-kit/` | Codex·Claude Code의 프로젝트 스킬 생성 |
+
+**앱 적용을 위해 남는 일:** 서버 API 키 설정, 업무에 맞는 질문·실패 처리 기준 정의, 기존 요청 처리에서 라이브러리 호출, 관측 결과 저장입니다. Shadow 모드, 주간 이슈·PR, 배포도 이 명령이 구성하지 않습니다. CLI의 키 설정과 서버의 키 설정은 별개입니다.
+
+지원 대상은 npm을 사용하는 독립 프로젝트 또는 워크스페이스 루트입니다. pnpm·yarn·bun 프로젝트와 기존의 다른 Jev 설치 방식은 자동으로 이전하지 않습니다. Edge 함수처럼 앱 루트와 별도의 의존성을 쓰는 코드에도 자동으로 연결되지 않습니다. [서버 적용·수동 설치·업데이트](docs/integration.md).
+
+설치한 프로젝트에서 CLI를 시험하려면 다음처럼 실행합니다. npm 로그인이나 전역 설치는 필요하지 않습니다.
 
 ```sh
 cd ../my-app
@@ -77,13 +92,13 @@ npm run jev -- decide --text "계정 설정을 변경하고 싶어요" --questio
 
 API 키를 아직 설정하지 않았다면 `npm run jev -- init`으로 입력합니다. 에이전트에는 “샘플 문의를 계정 지원·기타·판단보류로 분류해줘”처럼 요청하면 됩니다. 프로젝트 스킬은 새 세션에서 읽습니다.
 
-`package.json`·`package-lock.json`·`vendor/jev-decision-kit/`·생성한 두 스킬 폴더를 함께 커밋하면, 다른 개발 환경과 CI에서도 `npm ci`로 같은 패키지를 설치합니다. 원본 clone은 필요하지 않습니다. 기존 `jev` 명령이나 스킬과 충돌하거나 연결 파일을 직접 수정했다면 덮어쓰지 않고 중단합니다.
+`package.json`·`package-lock.json`·`vendor/jev-decision-kit/`·생성한 두 스킬 폴더를 함께 커밋하면, 다른 개발 환경과 CI에서도 `npm ci`로 같은 패키지를 설치합니다. 원본 clone은 필요하지 않습니다. 기존 `jev` 명령·같은 패키지 의존성·스킬과 충돌하거나 관리 파일을 직접 수정했다면 덮어쓰지 않고 중단합니다.
 
-앱의 실제 요청 처리에 적용하려면 서버 코드에서 `createDecisionClient`를 호출하고 프로젝트의 질문·API 키·실패 처리 정책을 전달합니다. 패키지 연결 후 에이전트에게 “서버의 문의 분류에 이 라이브러리를 연결해줘”처럼 기존 코드의 적용 지점을 요청할 수도 있습니다. [서버 연결 예제·수동 설치·업데이트](docs/integration.md).
+서버 적용은 기존 요청 처리에서 `createDecisionClient`를 호출하도록 구현합니다. 설치 후 에이전트에게 “서버의 문의 분류에 이 라이브러리를 연결해줘”라고 요청하면 이 별도 구현 작업을 맡길 수 있습니다.
 
 ## 에이전트에게 판단 실험 맡기기
 
-스킬은 Codex·Claude Code에게 CLI 호출 방법, 응답 확인 방법, 평가할 때의 주의점을 알려주는 안내입니다. `connect`로 연결한 프로젝트에는 이미 설치되어 있습니다. 여러 프로젝트에서 개인 스킬로 쓰려면 준비한 Jev Decision Kit 폴더에서 다음을 실행합니다.
+스킬은 Codex·Claude Code에게 CLI 호출 방법, 응답 확인 방법, 평가할 때의 주의점을 알려주는 안내입니다. `connect`를 실행한 프로젝트에는 이미 설치되어 있습니다. 여러 프로젝트에서 개인 스킬로 쓰려면 준비한 Jev Decision Kit 폴더에서 다음을 실행합니다.
 
 ```sh
 npm run cli -- agent install codex

@@ -33,7 +33,11 @@ npm run cli -- agent doctor
 npm run cli -- agent uninstall
 ```
 
-To connect an npm project, run `npm run connect -- ../my-app` from the clone. No toolkit dependency installation or build is required for this command. It installs the decision library, a project-local CLI, and Codex/Claude Code project skills. In that project, use `npm run jev -- demo --offline` or `npm run jev -- decide ...`. Commit its manifest, lockfile, `vendor/jev-decision-kit/`, and generated project skills for portable `npm ci` installation. See [project integration](https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md) for the server-code example.
+`npm run connect -- ../my-app`, run from the clone, **installs packages and development tools; it does not integrate decisions into application request handling**. No toolkit dependency installation or build is required. It supports independent npm projects and workspace roots; it does not migrate other package managers or existing Jev integrations.
+
+It adds the decision library and local CLI to `package.json`, creates a `jev` script, runs `npm install` to update the lockfile and `node_modules` with lifecycle scripts disabled, stores versioned packages and `connection.json` in `vendor/jev-decision-kit/`, and creates Codex/Claude Code project skills. Commit the manifest, lockfile, vendor files and skills for portable `npm ci` installation.
+
+After installation, use `npm run jev -- demo --offline` to test execution or `npm run jev -- decide ...` for a real API call. Server API keys, application questions, fallback policy and caller code still need to be implemented. Shadow collection, weekly issues/PRs and deployment are separate work. The CLI's saved key is not loaded by application servers. See [project integration](https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md).
 
 For JSON output, use `npm run --silent cli -- decide ... --json` to hide npm's script banner. Run a question-definition JSON file with `npm run cli -- run FILE.json` or aggregate observations with `npm run cli -- eval FILE.jsonl`.
 
