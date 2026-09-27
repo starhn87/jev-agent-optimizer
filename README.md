@@ -7,7 +7,7 @@ Jev의 작은 의미 판단을 검증 가능한 결과로 반환하고 평가하
 Node.js 22 이상과 npm이 필요합니다. 현재는 GitHub 릴리스에 있는 npm 패키지를 바로 설치합니다. npm registry 게시는 아직 하지 않았습니다.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/starhn87-jev-decisions-0.1.0.tgz
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-decisions-0.1.1.tgz
 ```
 
 Workers, Deno, Node에서 같은 ESM을 사용합니다. 공식 TypeSafe SDK가 번들에 포함되어 별도 런타임 의존성을 설치할 필요가 없습니다.
@@ -41,7 +41,7 @@ else console.log(result.error.kind);
 node --env-file=.env decision.mjs
 ```
 
-Workers에서는 키를 서버 binding으로 전달합니다. Deno는 [런타임별 예제](packages/decisions/README.md#deno)의 릴리스 ESM을 직접 import할 수 있습니다. 패키지 버전과 lockfile을 함께 고정하고, `.env`는 Git에서 제외하세요.
+Workers에서는 키를 서버 binding으로 전달합니다. Deno는 [런타임별 예제](packages/decisions/README.md#deno)의 설치한 ESM을 import할 수 있습니다. 패키지 버전과 lockfile을 함께 고정하고, `.env`는 Git에서 제외하세요.
 
 ## 판단과 평가
 
@@ -53,7 +53,7 @@ Workers에서는 키를 서버 binding으로 전달합니다. Deno는 [런타임
 별도 Node 평가 도구는 실패·보류·정답 라벨이 없는 사례까지 집계합니다.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/starhn87-jev-eval-0.1.0.tgz
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-eval-0.1.1.tgz
 npx jev-eval observations.jsonl
 ```
 

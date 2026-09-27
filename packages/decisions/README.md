@@ -3,7 +3,7 @@
 Validated Jev decisions for Workers, Deno and Node. The official TypeSafe SDK 0.6.0 is bundled; there are no external runtime imports or installation hooks. The package imports no Node modules and reads no environment variables.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/starhn87-jev-decisions-0.1.0.tgz
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-decisions-0.1.1.tgz
 ```
 
 This installs the packaged GitHub release through npm. npm registry publication is pending. Node examples require Node 22+; the same ESM also works in Workers and Deno.
@@ -59,12 +59,13 @@ Set `TYPESAFE_API_KEY` as a server secret. Keep it out of frontend bundles.
 ## Deno
 
 ```ts
-import { createDecisionClient } from 'https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/index.js';
+// @deno-types="./node_modules/@starhn87/jev-decisions/dist/index.d.ts"
+import { createDecisionClient } from './node_modules/@starhn87/jev-decisions/dist/index.js';
 
 const client = createDecisionClient({ apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', model: 'jev-1.13.0' });
 ```
 
-The release includes the bundled ESM and its TypeScript declaration alongside it. Save your caller as `decision.ts` and run it with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
+Run the npm install command above in the same project first. Deno imports the installed ESM and its adjacent TypeScript declaration from the local filesystem; it does not resolve an unpublished npm registry package. Save your caller as `decision.ts` and run it with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
 
 ## Contract
 

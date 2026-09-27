@@ -38,6 +38,13 @@ const n: number = summarize([]).total;
 const s: string = reportWindow().week;
 await evaluateCases([{ caseId: '1', groupId: 'g' }], { run: async () => r, judge: () => ({ status: 'deferred', correct: null }) });`);
     run(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--target', 'ES2022', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', 'types.mts'], dir);
+    writeFileSync(join(dir, 'types.deno.ts'), `// @deno-types="./node_modules/@starhn87/jev-decisions/dist/index.d.ts"
+import { createDecisionClient } from './node_modules/@starhn87/jev-decisions/dist/index.js';
+const result = await createDecisionClient({ apiKey: '', model: 'jev-1.13.0' }).decide({ definitionId: 'test', definitionVersion: '1', state: 'x', questions: { scope: { type: 'choice', criteria: { yes: 'Relevant', no: 'Unrelated' } } } });
+if (result.ok) { const typed: 'yes' | 'no' = result.answers.scope.choice;
+// @ts-expect-error Installed Deno imports must retain literal labels too.
+const invalid: 'foreign' = result.answers.scope.choice; }`);
+    run('npx', ['--yes', '--package=deno@2.9.5', '--', 'deno', 'check', 'types.deno.ts'], dir);
     writeFileSync(join(dir, 'observations.jsonl'), JSON.stringify({ caseId: '1', groupId: 'g', status: 'deferred', correct: null, meta: { durationMs: 10, inputTokens: null, outputTokens: 2 } }) + '\n');
     const summary = JSON.parse(run(process.execPath, ['node_modules/@starhn87/jev-eval/cli.mjs', 'observations.jsonl'], dir));
     assert.equal(summary.deferred, 1); assert.equal(summary.inputTokens.unknownRows, 1);

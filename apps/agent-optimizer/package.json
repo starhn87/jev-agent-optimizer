@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Codex and Claude consumer of Jev Decision Kit",
   "dependencies": {
-    "@starhn87/jev-decisions": "0.1.0"
+    "@starhn87/jev-decisions": "0.1.1"
   }
 }

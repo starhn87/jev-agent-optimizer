@@ -1,16 +1,44 @@
 {
   "name": "@starhn87/jev-eval",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Evaluate Jev decisions and publish consumer-owned weekly observation issues",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/starhn87/jev-decision-kit.git", "directory": "packages/eval" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/starhn87/jev-decision-kit.git",
+    "directory": "packages/eval"
+  },
   "homepage": "https://github.com/starhn87/jev-decision-kit/tree/main/packages/eval#readme",
   "bugs": "https://github.com/starhn87/jev-decision-kit/issues",
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
-  "exports": { ".": { "types": "./index.d.mts", "import": "./index.mjs" }, "./weekly": { "types": "./weekly.d.mts", "import": "./weekly.mjs" } },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.mts",
+      "import": "./index.mjs"
+    },
+    "./weekly": {
+      "types": "./weekly.d.mts",
+      "import": "./weekly.mjs"
+    }
+  },
   "types": "./index.d.mts",
-  "files": ["index.mjs", "index.d.mts", "weekly.mjs", "weekly.d.mts", "cli.mjs", "LICENSE", "README.md"],
-  "engines": { "node": ">=22" },
-  "bin": { "jev-eval": "./cli.mjs" }
+  "files": [
+    "index.mjs",
+    "index.d.mts",
+    "weekly.mjs",
+    "weekly.d.mts",
+    "cli.mjs",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "jev-eval": "./cli.mjs"
+  }
 }

@@ -3,7 +3,7 @@
 Node 22+ evaluation and reporting utilities. Collection, labels, thresholds and actions belong to the caller. There are no runtime dependencies or automatic provider calls.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/starhn87-jev-eval-0.1.0.tgz
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-eval-0.1.1.tgz
 npx jev-eval observations.jsonl
 ```
 
