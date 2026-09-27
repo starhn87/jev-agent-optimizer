@@ -52,11 +52,14 @@ export async function askSearchJev(state: Record<string, unknown>, questions: Re
   if (!apiKey) throw new Error("jev-key-missing");
   const response = await (options.fetchImpl ?? fetch)(options.endpoint ?? "https://api.typesafe.ai/v1/systemone", {
     method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: "jev-latest", state, questions }), signal: AbortSignal.timeout(options.timeoutMs ?? 2000),
+    body: JSON.stringify({ model: options.model ?? "jev-latest", state, questions }), signal: AbortSignal.timeout(options.timeoutMs ?? 2000),
   });
   if (!response.ok) throw new Error("jev-unavailable");
   const reply: unknown = await response.json();
   if (!record(reply) || !record(reply.answers)) throw new Error("jev-invalid");
+  try {
+    options.onExchange?.({ model: options.model ?? "jev-latest", state, questions: questions as Record<string, Record<string, unknown>> }, reply);
+  } catch { /* Capture never fails a gate. */ }
   return reply as JevReply;
 }
 

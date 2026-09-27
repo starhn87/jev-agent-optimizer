@@ -6,6 +6,7 @@ import { codexArgs, codexChildEnv } from "./codex-args.js";
 import { startCodexProxy, type ProxyOptions } from "./codex-proxy.js";
 import { observeClaudePrompt } from "./claude-shadow.js";
 import { askJev } from "./jev.js";
+import { captureSink } from "./capture.js";
 import { readLoginKeychainPassword } from "./keychain.js";
 import { writeMetric } from "./metrics.js";
 import { defaultSettings } from "./policy.js";
@@ -114,7 +115,8 @@ async function keychainApiKey(service: string, account: string): Promise<string>
 async function keychainClassifier(spec: { service: string; account: string } | null): Promise<((query: RouteQuery) => Promise<RouteChoice>) | undefined> {
   if (!spec) return undefined;
   const apiKey = await keychainApiKey(spec.service, spec.account);
-  return (query) => askJev(query, { apiKey });
+  const onExchange = captureSink("route");
+  return (query) => askJev(query, { apiKey, onExchange });
 }
 
 // A local Kev needs no key; a hosted one reads its bearer from JAO_SHADOW_CLASSIFIER_KEY.
@@ -123,7 +125,8 @@ function shadowClassifier(parsed: Parsed): ProxyOptions["shadowClassifier"] {
   if (!parsed.shadowClassifierEndpoint || parsed.settings.mode !== "auto") return undefined;
   const endpoint = parsed.shadowClassifierEndpoint;
   const model = parsed.shadowClassifierModel ?? "kev-latest";
-  return { name: model, classify: (query) => askJev(query, { endpoint, model,
+  const onExchange = captureSink("route");
+  return { name: model, classify: (query) => askJev(query, { endpoint, model, onExchange,
     apiKey: process.env.JAO_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
 }
 
@@ -185,10 +188,11 @@ async function runClaudeShadowHook(parsed: Parsed): Promise<void> {
   try {
     const input = await readHookInput();
     if (input && typeof input === "object") {
+      const onExchange = captureSink("route");
       const classify = spec
         ? async (query: Parameters<typeof askJev>[0]) =>
-          askJev(query, { apiKey: await keychainApiKey(spec.service, spec.account) })
-        : askJev;
+          askJev(query, { apiKey: await keychainApiKey(spec.service, spec.account), onExchange })
+        : (query: Parameters<typeof askJev>[0]) => askJev(query, { onExchange });
       await observeClaudePrompt(input, parsed.metricsFile, classify);
     }
   } catch {
@@ -290,8 +294,9 @@ async function main(): Promise<void> {
       return JSON.parse(readFileSync(args[0]!, "utf8")) as unknown;
     })();
     const spec = keychainSpec(options.get("--keychain-service"), options.get("--keychain-account"));
-    const ask = spec ? async (state: Record<string, unknown>, questions: Record<string, unknown>) =>
-      askSearchJev(state, questions, { apiKey: await keychainApiKey(spec.service, spec.account) }) : askSearchJev;
+    const onExchange = captureSink("search");
+    const ask = async (state: Record<string, unknown>, questions: Record<string, unknown>) =>
+      askSearchJev(state, questions, { onExchange, ...(spec ? { apiKey: await keychainApiKey(spec.service, spec.account) } : {}) });
     const input = source as SearchInput;
     const result = await searchGate(input, ask);
     if (options.has("--metrics")) {
@@ -326,8 +331,9 @@ async function main(): Promise<void> {
       return JSON.parse(readFileSync(args[0]!, "utf8")) as unknown;
     })();
     const spec = keychainSpec(options.get("--keychain-service"), options.get("--keychain-account"));
-    const ask = spec ? async (state: Record<string, unknown>, questions: Record<string, unknown>) =>
-      askSearchJev(state, questions, { apiKey: await keychainApiKey(spec.service, spec.account) }) : askSearchJev;
+    const onExchange = captureSink("memory");
+    const ask = async (state: Record<string, unknown>, questions: Record<string, unknown>) =>
+      askSearchJev(state, questions, { onExchange, ...(spec ? { apiKey: await keychainApiKey(spec.service, spec.account) } : {}) });
     const input = source as MemoryInput;
     const result = await filterMemory(input, ask);
     if (options.has("--metrics")) {

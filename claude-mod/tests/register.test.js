@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { choiceFromJev, keyFromEnvFile, register } from "../hooks/register.js";
 
+// The capture path awaits a real crypto.subtle.digest, not just microtasks, so a bare
+// setTimeout(0) can fire before it settles under load. Poll instead of guessing a delay.
+async function waitUntil(check, timeoutMs = 2000) {
+  const started = Date.now();
+  while (!check()) {
+    if (Date.now() - started > timeoutMs) throw new Error("timed out waiting for condition");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 function harness({ answer = "fast", confidence = 0.95, effortScore = 2.8, env = {} } = {}) {
   const hooks = new Map();
   const requests = [];
@@ -290,4 +300,25 @@ test("longer English continuations also keep the model, and a first-turn continu
   assert.equal((await h.step("t")).sent.model, "claude-sonnet-5");
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(h.metrics().find((event) => event.kind === "continuation-shadow").reason, "no-previous-exchange");
+});
+
+test("capture is off by default and, when enabled, writes the exact request and answer to a Claude-only file", async () => {
+  const off = harness();
+  await off.start("t", "Please implement this straightforward little change.");
+  await off.step("t");
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(off.files.has("/router/claude-mod/../.local/capture/route-claude.jsonl"), false);
+
+  const on = harness({ env: { JAO_CAPTURE: "1" } });
+  await on.start("t", "Please implement this straightforward little change.");
+  await on.step("t");
+  await waitUntil(() => on.files.has("/router/claude-mod/../.local/capture/route-claude.jsonl"));
+  const [capture] = on.files.get("/router/claude-mod/../.local/capture/route-claude.jsonl")
+    .split("\n").filter(Boolean).map(JSON.parse);
+  assert.equal(capture.decision, "route");
+  assert.equal(capture.classifier, "jev-latest");
+  assert.equal(capture.request.state.user_turn, "Please implement this straightforward little change.");
+  assert.deepEqual(capture.answers, { tier: { type: "choice", choice: "fast", confidence: 0.95 },
+    effort: { type: "score", score: 2.8, confidence: 0.91 } });
+  assert.match(capture.key, /^[0-9a-f]{24}$/);
 });

@@ -1,5 +1,6 @@
 import type { RouteChoice, RouteQuery, Tier } from "./types.js";
 import { MAX_CLASSIFIER_PROMPT_CHARS } from "./policy.js";
+import type { ExchangeSink } from "./capture.js";
 
 export type JevOptions = {
   apiKey?: string;
@@ -8,6 +9,8 @@ export type JevOptions = {
   fetchImpl?: typeof fetch;
   // A Jev-compatible System One server such as a local Kev names its own model.
   model?: string;
+  // Receives each successful request and reply, e.g. for opt-in local capture.
+  onExchange?: ExchangeSink;
 };
 
 // claude-mod/hooks/register.js sends the same criteria; claude-mod/tests/policy-sync.test.js checks it.
@@ -74,6 +77,7 @@ export async function askJev(query: RouteQuery, options: JevOptions = {}): Promi
   const result: unknown = await response.json();
   if (!result || typeof result !== "object") throw new Error("jev-response-invalid");
   const record = result as Record<string, unknown>;
+  try { options.onExchange?.(request, record); } catch { /* Capture never fails a route. */ }
   const answers = record.answers as Record<string, unknown> | undefined;
   const answer = answers?.tier as Record<string, unknown> | undefined;
   if (answer?.type !== "choice" || typeof answer.choice !== "string" || !TIERS.has(answer.choice)) {

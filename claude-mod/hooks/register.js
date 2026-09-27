@@ -146,7 +146,37 @@ export function continuationRoute(currentModel, contextTokens, choice, models = 
   return { model, tier: choice.tier, direction, ...(choice.effort ? { effort: choice.effort } : {}) };
 }
 
-async function callJev($, request) {
+const CAPTURE_MAX_BYTES = 16 * 1024 * 1024;
+
+// Same key formula as requestKey in src/capture.ts (SHA-256 of [state, questions], hex, 24 chars),
+// so a request classified by both Jev and a local Kev lines up under one key when exported.
+async function requestKey(body) {
+  const bytes = new TextEncoder().encode(JSON.stringify([body.state, body.questions]));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 24);
+}
+
+// Opt-in (JAO_CAPTURE=1): appends the exact request/answer pair to .local/capture/<decision>-claude.jsonl,
+// separate from the Codex-side file the same decision writes, so the two runtimes never race on one file.
+async function captureWriter($, decision) {
+  if ((await $.env.get("JAO_CAPTURE")) !== "1") return undefined;
+  const file = (await envFile($)).replace(/[^/\\]*$/, `.local/capture/${decision}-claude.jsonl`);
+  return async (body, reply) => {
+    if (!reply?.answers || typeof reply.answers !== "object") return;
+    try {
+      const capture = { id: crypto.randomUUID(), at: new Date(await now($)).toISOString(), decision,
+        key: await requestKey(body), classifier: body.model ?? "unknown",
+        request: { state: body.state, questions: body.questions }, answers: reply.answers };
+      let text = "";
+      try { text = await $.fs.read(file); } catch { /* A missing capture file starts empty. */ }
+      text += `${JSON.stringify(capture)}\n`;
+      if (text.length > CAPTURE_MAX_BYTES) text = text.slice(text.indexOf("\n", text.length - CAPTURE_MAX_BYTES) + 1);
+      await $.fs.write(file, text);
+    } catch { /* Capture must never fail a route. */ }
+  };
+}
+
+async function callJev($, request, onExchange) {
   const key = await apiKey($);
   if (!key) return { error: "TypeSafe key unavailable" };
   const endpoint = await $.env.get("JAO_TYPESAFE_ENDPOINT") || ENDPOINT;
@@ -165,6 +195,7 @@ async function callJev($, request) {
     if (response === timeout) return { error: "Jev timeout", latencyMs };
     if (!response.ok) return { error: `Jev HTTP ${response.status}`, latencyMs };
     const body = JSON.parse(response.text);
+    void onExchange?.(request, body);
     const tokens = body?.usage?.input_tokens;
     const measured = { latencyMs, ...(Number.isSafeInteger(tokens) && tokens >= 0 ? { jevInputTokens: tokens } : {}) };
     const choice = choiceFromJev(body);
@@ -184,7 +215,7 @@ async function routeTurn($, text, contextTokens) {
   if (isContinuation(prompt)) return { reason: "continuation" };
   if (prompt.length < 12) return { reason: "short or empty prompt" };
 
-  const { choice, error, ...measured } = await callJev($, jevRequest(prompt));
+  const { choice, error, ...measured } = await callJev($, jevRequest(prompt), await captureWriter($, "route"));
   if (error) return { reason: error, ...(error === "TypeSafe key unavailable" ? {} : { jevError: true }), ...measured };
   if (choice.confidence < CONFIDENCE_FLOOR) {
     return { tier: choice.tier, confidence: choice.confidence, effort: choice.effort,
@@ -239,7 +270,7 @@ async function shadowContinuation($, record, { turnId, prompt, previous, current
   if ([previous.previousRequest, previous.previousReply].some((text) => text && SENSITIVE_PATTERN.test(text))) {
     return emit({ reason: "sensitive-previous-exchange" });
   }
-  const { choice, error, ...measured } = await callJev($, jevRequest(prompt, previous));
+  const { choice, error, ...measured } = await callJev($, jevRequest(prompt, previous), await captureWriter($, "route"));
   if (error) return emit({ ...measured, reason: error === "TypeSafe key unavailable" ? "key-unavailable" : "jev-unavailable" });
   const models = { fast: await modelFor($, "fast"), balanced: await modelFor($, "balanced"), strong: await modelFor($, "strong") };
   const route = currentModel ? continuationRoute(currentModel, contextTokens, choice, models) : null;

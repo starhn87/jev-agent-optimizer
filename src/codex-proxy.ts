@@ -3,6 +3,7 @@ import https from "node:https";
 import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 import { askJev } from "./jev.js";
+import { captureSink } from "./capture.js";
 import { codexSessionKey, estimateContextTokens, latestUserTurn, previousExchange, type CodexBody } from "./codex-request.js";
 import { CodexResponseObserver, type ObservedResponse } from "./codex-response.js";
 import { chooseModel, continuationRoute, effortFromScore, fallbackModel, localRoute, SENSITIVE_PATTERN, shadowRoute } from "./policy.js";
@@ -48,7 +49,8 @@ export class CodexRouter {
   private metricsWarningShown = false;
 
   constructor(private readonly options: ProxyOptions) {
-    this.classify = options.classify ?? ((query) => askJev(query));
+    const route = captureSink("route");
+    this.classify = options.classify ?? ((query) => askJev(query, { onExchange: route }));
   }
 
   private report(event: Omit<DecisionEvent, "at" | "mode" | "client">, requestId?: string): void {
