@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,12 +8,20 @@ import { fileURLToPath } from 'node:url';
 
 const connector = fileURLToPath(new URL('../scripts/connect-project.mjs', import.meta.url));
 const kitRoot = fileURLToPath(new URL('../', import.meta.url));
+const npmCache = mkdtempSync(join(tmpdir(), 'jev-connect-npm-cache-'));
+after(() => rmSync(npmCache, { recursive: true, force: true }));
+before(() => {
+  const sdkVersion = JSON.parse(readFileSync(join(kitRoot, 'packages/decisions/package.json'), 'utf8')).peerDependencies['@typesafe-ai/sdk'];
+  // npm ci only caches the locked tarball; offline resolution also needs registry metadata.
+  execFileSync('npm', ['cache', 'add', `@typesafe-ai/sdk@${sdkVersion}`, '--cache', npmCache, '--offline=false'], { stdio: 'pipe' });
+});
 function fixture(t, extra = {}) {
   const temp = mkdtempSync(join(tmpdir(), 'jev-project-connect-'));
   t.after(() => rmSync(temp, { recursive: true, force: true }));
   const project = join(temp, 'my app'); mkdirSync(project);
   const home = join(temp, 'home'); mkdirSync(home);
-  const env = { ...process.env, HOME: home, NPM_CONFIG_OFFLINE: 'true' };
+  const env = { ...process.env, HOME: home, NPM_CONFIG_OFFLINE: 'true', NPM_CONFIG_CACHE: npmCache };
+  delete env.npm_config_cache; delete env.npm_config_offline;
   for (const name of ['TYPESAFE_API_KEY', 'JEV_UTILS_MODEL', 'CODEX_HOME', 'CLAUDE_CONFIG_DIR']) delete env[name];
   const manifest = { name: 'consumer', private: true, type: 'module', scripts: { keep: 'echo existing', preinstall: 'node -e "require(\'node:fs\').writeFileSync(\'unexpected-hook\', \'ran\')"' }, custom: { preserved: true }, ...extra };
   writeFileSync(join(project, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
