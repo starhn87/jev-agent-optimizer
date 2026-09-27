@@ -109,3 +109,20 @@ test("continuation shadows are summarized apart from routing decisions", () => {
     skipped: { "no-previous-exchange": 1 }, byModel: { astra: 1 }, p95LatencyMs: 1200 });
   assert.equal(summary.jevInputTokens, 1000);
 });
+
+test("classifier shadows report tier and model agreement with Jev", () => {
+  const event = (primaryTier: string, shadowTier: string, primaryModel: string, shadowModel: string) => JSON.stringify({
+    at: "2026-09-27T00:00:00Z", client: "codex", kind: "classifier-shadow", classifier: "kev-latest",
+    primaryTier, shadowTier, primaryModel, shadowModel, latencyMs: 100, reason: "compared" });
+  const input = [event("balanced", "balanced", "sol", "sol"), event("balanced", "fast", "sol", "sol"),
+    event("fast", "strong", "luna", "astra"),
+    JSON.stringify({ at: "2026-09-27T00:00:00Z", client: "codex", kind: "classifier-shadow", classifier: "kev-latest", latencyMs: 8000, reason: "shadow-unavailable" }),
+  ].join("\n");
+  const summary = summarizeMetrics(input).classifierShadow;
+  assert.equal(summary.compared, 3);
+  assert.ok(Math.abs(summary.tierAgreement! - 1 / 3) < 1e-9);
+  assert.ok(Math.abs(summary.modelAgreement! - 2 / 3) < 1e-9);
+  assert.deepEqual(summary.confusion, { "balanced->balanced": 1, "balanced->fast": 1, "fast->strong": 1 });
+  assert.equal(summary.shadowErrors, 1);
+  assert.equal(summarizeMetrics(input).total, 0);
+});

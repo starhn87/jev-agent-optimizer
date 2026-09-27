@@ -6,6 +6,8 @@ export type JevOptions = {
   endpoint?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  // A Jev-compatible System One server such as a local Kev names its own model.
+  model?: string;
 };
 
 // claude-mod/hooks/register.js sends the same criteria; claude-mod/tests/policy-sync.test.js checks it.
@@ -26,12 +28,10 @@ export const CONTINUATION_NOTE = " The user turn continues earlier work: judge t
 
 const TIERS: ReadonlySet<string> = new Set(["fast", "balanced", "strong"]);
 
-export async function askJev(query: RouteQuery, options: JevOptions = {}): Promise<RouteChoice> {
-  const apiKey = options.apiKey ?? process.env.TYPESAFE_API_KEY ?? process.env.JEV_API_KEY;
-  if (!apiKey) throw new Error("jev-key-missing");
-
-  const request = {
-    model: "jev-latest",
+// The exact request production sends; export-training reuses it so a fine-tune learns these questions.
+export function routingRequest(query: RouteQuery, model = "jev-latest") {
+  return {
+    model,
     state: {
       user_turn: query.prompt.slice(0, MAX_CLASSIFIER_PROMPT_CHARS),
       approximate_context_tokens: query.contextTokens,
@@ -52,6 +52,13 @@ export async function askJev(query: RouteQuery, options: JevOptions = {}): Promi
       },
     },
   };
+}
+
+export async function askJev(query: RouteQuery, options: JevOptions = {}): Promise<RouteChoice> {
+  const apiKey = options.apiKey ?? process.env.TYPESAFE_API_KEY ?? process.env.JEV_API_KEY;
+  if (!apiKey) throw new Error("jev-key-missing");
+
+  const request = routingRequest(query, options.model);
 
   const response = await (options.fetchImpl ?? fetch)(options.endpoint ?? "https://api.typesafe.ai/v1/systemone", {
     method: "POST",

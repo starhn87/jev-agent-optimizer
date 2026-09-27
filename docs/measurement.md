@@ -21,6 +21,10 @@ node dist/cli.js report .local/codex-persistent.jsonl --since 2026-09-25T20:49:0
 
 `serve`·`codex`에 `--shadow-fast-confidence 0.7`을 주면 Jev가 fast를 추천했지만 신뢰도 기준(또는 `--downgrade-confidence` 하향 기준)에 못 미친 턴에서, 기준이 0.7이었다면 선택됐을 모델을 판정 기록의 `shadowModel`·`shadowEffort`에 남깁니다. **실제 요청 모델은 바꾸지 않습니다.** 자동 설치는 이 옵션을 켭니다. `report`의 `shadow`는 해당 판정·작업·응답 수와, `--prices`가 있으면 같은 토큰을 실제 모델과 shadow 모델 단가로 계산한 `appliedUsd`·`shadowUsd`를 보여줍니다. shadow 모델이 같은 품질로 같은 토큰을 썼을 거라는 가정의 추정치이므로, 기준을 실제로 낮추기 전에 해당 작업 일부를 fast 모델로 다시 실행해 `compare-draft`와 품질 점수로 확인하세요.
 
+## 두 번째 분류기 병행 비교
+
+`serve`·`codex`에 `--shadow-classifier-endpoint http://127.0.0.1:8009/v1/systemone`을 주면 Jev가 판정하는 새 턴마다 같은 요청을 TypeSafe System One 호환 서버(예: 로컬 [Kev](https://github.com/jaredpalmer/kev))에도 보내고, 결과를 `classifier-shadow` 기록으로만 남깁니다. 실제 라우팅은 Jev 결과를 따르고 요청은 두 번째 분류기를 기다리지 않습니다. 모델 이름은 `--shadow-classifier-model`(기본 `kev-latest`)로, 키가 필요하면 `JAO_SHADOW_CLASSIFIER_KEY`로 지정합니다. TypeSafe 키는 이 주소로 보내지 않습니다. `report`의 `classifierShadow`에서 tier·실제 모델 일치율, `jev->shadow` tier 쌍별 건수, 지연을 확인합니다.
+
 ## 에이전트 모델 비용 추정
 
 `--prices`에 모델별 100만 토큰당 단가 파일을 주면 `agentCost`에 실제 응답 모델별 추정 비용과, 같은 토큰을 `referenceModel` 단가로 계산한 값 및 차이를 표시합니다. 단가는 이 프로젝트가 제공하지 않으므로 계정의 실제 요금으로 직접 채우세요. 예제 파일의 숫자는 합성값입니다. 기준 모델이 실제로 같은 토큰을 썼을 거라는 가정이므로 `estimatedSavingsUsd`는 추정치이며 청구 비용 비교를 대신하지 않습니다. 단가가 없는 모델의 응답은 `unpricedResponses`로 따로 셉니다. 날짜가 붙은 스냅샷(`…-20251001`)은 기본 모델 단가를 사용합니다.

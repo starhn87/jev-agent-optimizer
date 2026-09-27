@@ -8,7 +8,7 @@ import { CodexResponseObserver, type ObservedResponse } from "./codex-response.j
 import { chooseModel, continuationRoute, effortFromScore, fallbackModel, localRoute, SENSITIVE_PATTERN, shadowRoute } from "./policy.js";
 import { readRecentStatus, renderStatusPage } from "./status.js";
 import { allowsResponseFooter, ResponseFooter, withoutResponseFooters } from "./response-footer.js";
-import type { ContinuationShadowEvent, DecisionEvent, ResponseObservationEvent, RouteChoice, RouteQuery, RouteResult, RouterSettings } from "./types.js";
+import type { ClassifierShadowEvent, ContinuationShadowEvent, DecisionEvent, ResponseObservationEvent, RouteChoice, RouteQuery, RouteResult, RouterSettings } from "./types.js";
 
 const CHATGPT_CODEX_URL = "https://chatgpt.com/backend-api/codex";
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
@@ -22,7 +22,9 @@ export type ProxyOptions = {
   classify?: (query: RouteQuery) => Promise<RouteChoice>;
   onDecision?: (event: DecisionEvent) => void;
   onObservation?: (event: ResponseObservationEvent) => void;
-  onShadow?: (event: ContinuationShadowEvent) => void;
+  onShadow?: (event: ContinuationShadowEvent | ClassifierShadowEvent) => void;
+  // A second classifier asked about every Jev-routed turn; logged only, never applied.
+  shadowClassifier?: { name: string; classify: (query: RouteQuery) => Promise<RouteChoice> };
   responseFooter?: boolean;
 };
 
@@ -64,6 +66,35 @@ export class CodexRouter {
         requestedModel, ...(requestedEffort ? { requestedEffort } : {}), ...observed });
     } catch { this.warnMetricsFailure(); }
     finally { this.requestTasks.delete(requestId); }
+  }
+
+  private startClassifierShadow(query: RouteQuery): Promise<{ choice?: RouteChoice; latencyMs: number }> | undefined {
+    const shadow = this.options.shadowClassifier;
+    if (!shadow) return undefined;
+    const started = Date.now();
+    return shadow.classify(query).then((choice) => ({ choice, latencyMs: Date.now() - started }),
+      () => ({ latencyMs: Date.now() - started }));
+  }
+
+  private finishClassifierShadow(pending: ReturnType<CodexRouter["startClassifierShadow"]>, query: RouteQuery,
+    primary: RouteChoice | undefined, requestId?: string): void {
+    const shadow = this.options.shadowClassifier;
+    if (!pending || !shadow) return;
+    const { settings } = this.options;
+    const routed = (choice: RouteChoice) => chooseModel(query, choice, settings, this.allowedModels());
+    void pending.then(({ choice, latencyMs }) => {
+      const primaryEffort = effortFromScore(primary?.effortScore);
+      const shadowEffort = effortFromScore(choice?.effortScore);
+      const event: ClassifierShadowEvent = { at: new Date().toISOString(), client: "codex", kind: "classifier-shadow",
+        requestId, ...(requestId && this.requestTasks.has(requestId) ? { taskId: this.requestTasks.get(requestId) } : {}),
+        classifier: shadow.name, latencyMs,
+        ...(primary ? { primaryTier: primary.tier, primaryConfidence: primary.confidence, primaryModel: routed(primary).model,
+          ...(primaryEffort ? { primaryEffort } : {}) } : {}),
+        ...(choice ? { shadowTier: choice.tier, shadowConfidence: choice.confidence, shadowModel: routed(choice).model,
+          ...(shadowEffort ? { shadowEffort } : {}) } : {}),
+        reason: !choice ? "shadow-unavailable" : !primary ? "primary-unavailable" : "compared" };
+      try { this.options.onShadow?.(event); } catch { this.warnMetricsFailure(); }
+    });
   }
 
   // Runs beside the request: the continuation keeps its model, so the user never waits for Jev.
@@ -206,8 +237,10 @@ export class CodexRouter {
         result = { model: currentModel, reason: "shadow-mode" };
       } else {
         const started = Date.now();
+        const classifierShadow = this.startClassifierShadow(query);
         try {
           const choice = await this.classify(query);
+          this.finishClassifierShadow(classifierShadow, query, choice, requestId);
           result = chooseModel(query, choice, settings, this.allowedModels());
           if (settings.autoEffort) selectedEffort = result.effort;
           const shadow = shadowRoute(query, choice, result, settings, this.allowedModels());
@@ -218,6 +251,7 @@ export class CodexRouter {
             jevInputTokens: choice.inputTokens, reason: result.reason,
             ...(shadow ? { shadowModel: shadow.model, ...(shadow.effort ? { shadowEffort: this.effectiveEffort(shadow.model, shadow.effort) } : {}) } : {}) }, requestId);
         } catch {
+          this.finishClassifierShadow(classifierShadow, query, undefined, requestId);
           result = { model: fallbackModel(currentModel, settings, this.allowedModels()), reason: "jev-unavailable" };
           if (settings.autoEffort) selectedEffort = "medium";
           this.report({ result: "error", model: result.model, effort: this.effectiveEffort(result.model, selectedEffort),

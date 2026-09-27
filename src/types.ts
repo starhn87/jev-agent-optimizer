@@ -98,4 +98,24 @@ export type ContinuationShadowEvent = {
   reason: string;
 };
 
-export type MetricsEvent = DecisionEvent | ResponseObservationEvent | ContinuationShadowEvent;
+// The same new turn classified by a second System One server (e.g. a local Kev) beside Jev.
+export type ClassifierShadowEvent = {
+  at: string;
+  client: "codex" | "claude";
+  kind: "classifier-shadow";
+  requestId?: string;
+  taskId?: string;
+  classifier: string;
+  primaryTier?: Tier;
+  primaryConfidence?: number;
+  primaryEffort?: Effort;
+  primaryModel?: string;
+  shadowTier?: Tier;
+  shadowConfidence?: number;
+  shadowEffort?: Effort;
+  shadowModel?: string;
+  latencyMs?: number;
+  reason: "compared" | "shadow-unavailable" | "primary-unavailable";
+};
+
+export type MetricsEvent = DecisionEvent | ResponseObservationEvent | ContinuationShadowEvent | ClassifierShadowEvent;

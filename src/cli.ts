@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { codexArgs, codexChildEnv } from "./codex-args.js";
-import { startCodexProxy } from "./codex-proxy.js";
+import { startCodexProxy, type ProxyOptions } from "./codex-proxy.js";
 import { observeClaudePrompt } from "./claude-shadow.js";
 import { askJev } from "./jev.js";
 import { readLoginKeychainPassword } from "./keychain.js";
@@ -23,6 +23,7 @@ import { defaultInstallContext, doctor, install, uninstall, type Client } from "
 import type { Mode, RouteChoice, RouteQuery, RouterSettings, Tier } from "./types.js";
 
 type Parsed = { settings: RouterSettings; metricsFile?: string; port?: number;
+  shadowClassifierEndpoint?: string; shadowClassifierModel?: string;
   keychainService?: string; keychainAccount?: string; responseFooter?: boolean; remaining: string[] };
 
 function parseOptions(args: string[]): Parsed {
@@ -32,6 +33,8 @@ function parseOptions(args: string[]): Parsed {
   let keychainService: string | undefined;
   let keychainAccount: string | undefined;
   let responseFooter: boolean | undefined;
+  let shadowClassifierEndpoint: string | undefined;
+  let shadowClassifierModel: string | undefined;
   let index = 0;
   while (index < args.length) {
     const flag = args[index];
@@ -62,6 +65,13 @@ function parseOptions(args: string[]): Parsed {
       if (!Number.isFinite(confidence) || confidence <= 0 || confidence > 1) throw new Error(`invalid shadow confidence: ${value}`);
       settings.shadowConfidence = { ...settings.shadowConfidence, fast: confidence };
     }
+    else if (flag === "--shadow-classifier-endpoint") {
+      let url: URL;
+      try { url = new URL(value); } catch { throw new Error(`invalid shadow classifier endpoint: ${value}`); }
+      if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("shadow classifier endpoint must be http(s)");
+      shadowClassifierEndpoint = url.href;
+    }
+    else if (flag === "--shadow-classifier-model") shadowClassifierModel = value;
     else if (flag === "--continuation-shadow") {
       if (value !== "on" && value !== "off") throw new Error("--continuation-shadow must be on or off");
       settings.continuationShadow = value === "on";
@@ -78,7 +88,9 @@ function parseOptions(args: string[]): Parsed {
   if (settings.minimumDowngradeConfidence !== undefined && settings.minimumDowngradeConfidence < settings.minimumConfidence) {
     throw new Error("--downgrade-confidence must be at least the minimum routing confidence");
   }
-  return { settings, metricsFile, port, keychainService, keychainAccount, responseFooter, remaining: args.slice(index) };
+  if (shadowClassifierModel && !shadowClassifierEndpoint) throw new Error("--shadow-classifier-model needs --shadow-classifier-endpoint");
+  return { settings, metricsFile, port, keychainService, keychainAccount, responseFooter,
+    shadowClassifierEndpoint, shadowClassifierModel, remaining: args.slice(index) };
 }
 
 function resolveCodex(): string {
@@ -105,6 +117,16 @@ async function keychainClassifier(spec: { service: string; account: string } | n
   return (query) => askJev(query, { apiKey });
 }
 
+// A local Kev needs no key; a hosted one reads its bearer from JAO_SHADOW_CLASSIFIER_KEY.
+// The TypeSafe key is never sent to this endpoint.
+function shadowClassifier(parsed: Parsed): ProxyOptions["shadowClassifier"] {
+  if (!parsed.shadowClassifierEndpoint || parsed.settings.mode !== "auto") return undefined;
+  const endpoint = parsed.shadowClassifierEndpoint;
+  const model = parsed.shadowClassifierModel ?? "kev-latest";
+  return { name: model, classify: (query) => askJev(query, { endpoint, model,
+    apiKey: process.env.JAO_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
+}
+
 async function runCodex(parsed: Parsed): Promise<void> {
   const spec = keychainSpec(parsed.keychainService, parsed.keychainAccount);
   const command = resolveCodex();
@@ -113,7 +135,7 @@ async function runCodex(parsed: Parsed): Promise<void> {
     responseFooter: parsed.responseFooter,
     statusFile: parsed.metricsFile,
     onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile),
-    onShadow: (event) => writeMetric(event, parsed.metricsFile) });
+    onShadow: (event) => writeMetric(event, parsed.metricsFile), shadowClassifier: shadowClassifier(parsed) });
   const baseUrl = `http://127.0.0.1:${proxy.port}`;
   if (parsed.settings.mode === "auto" && !spec && !process.env.TYPESAFE_API_KEY && !process.env.JEV_API_KEY) {
     process.stderr.write("[jao] No TypeSafe key; Auto will retain the current model.\n");
@@ -136,7 +158,7 @@ async function runServer(parsed: Parsed): Promise<void> {
     responseFooter: parsed.responseFooter,
     statusFile: parsed.metricsFile,
     classify, onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile),
-    onShadow: (event) => writeMetric(event, parsed.metricsFile) });
+    onShadow: (event) => writeMetric(event, parsed.metricsFile), shadowClassifier: shadowClassifier(parsed) });
   process.stdout.write(`Jev Agent Optimizer listening on http://127.0.0.1:${proxy.port}\n`);
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
@@ -198,6 +220,7 @@ function help(): void {
     `  --baseline-model ID, --fast-model ID, --balanced-model ID,\n` +
     `  --strong-model ID, --downgrade-confidence 0..1, --shadow-fast-confidence 0..1 (log only),\n` +
     `  --continuation-shadow on|off (log only), --metrics FILE, --port PORT,\n` +
+    `  --shadow-classifier-endpoint URL [--shadow-classifier-model kev-latest] (second System One server, log only),\n` +
     `  --keychain-service NAME, --keychain-account USER, --response-footer on|off\n`);
 }
 

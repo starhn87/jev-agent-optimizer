@@ -31,6 +31,19 @@ export type MetricsSummary = {
     appliedUsd: number | null;
     shadowUsd: number | null;
   };
+  // A second classifier (e.g. a local Kev) asked about the same turns as Jev.
+  classifierShadow: {
+    classifiers: string[];
+    compared: number;
+    tierAgreement: number | null;
+    modelAgreement: number | null;
+    // "jev->shadow" tier pairs, e.g. "balanced->fast".
+    confusion: Record<string, number>;
+    shadowErrors: number;
+    primaryErrors: number;
+    p50LatencyMs: number | null;
+    p95LatencyMs: number | null;
+  };
   // Continuations judged with the earlier exchange while the applied route kept the model.
   continuationShadow: {
     evaluated: number;
@@ -77,11 +90,27 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
   const continuation: MetricsSummary["continuationShadow"] = { evaluated: 0, upgrades: 0, downgrades: 0, unchanged: 0,
     errors: 0, skipped: {}, byModel: {}, p95LatencyMs: null };
   const continuationLatencies: number[] = [];
+  const classifier: MetricsSummary["classifierShadow"] = { classifiers: [], compared: 0, tierAgreement: null,
+    modelAgreement: null, confusion: {}, shadowErrors: 0, primaryErrors: 0, p50LatencyMs: null, p95LatencyMs: null };
+  const classifierLatencies: number[] = [];
+  let tiersAgreed = 0, modelsAgreed = 0;
   let continuationJevTokens = 0;
   const shadowTasks = new Map<string, string>();
   const shadowByModel: Record<string, number> = {};
   let shadowDecisions = 0;
   for (const event of events) {
+    if ("kind" in event && event.kind === "classifier-shadow") {
+      if (!classifier.classifiers.includes(event.classifier)) classifier.classifiers.push(event.classifier);
+      if (event.reason === "shadow-unavailable") { classifier.shadowErrors += 1; continue; }
+      if (typeof event.latencyMs === "number") classifierLatencies.push(event.latencyMs);
+      if (event.reason === "primary-unavailable") { classifier.primaryErrors += 1; continue; }
+      classifier.compared += 1;
+      if (event.primaryTier === event.shadowTier) tiersAgreed += 1;
+      if (event.primaryModel === event.shadowModel) modelsAgreed += 1;
+      const pair = `${event.primaryTier}->${event.shadowTier}`;
+      classifier.confusion[pair] = (classifier.confusion[pair] ?? 0) + 1;
+      continue;
+    }
     if ("kind" in event && event.kind === "continuation-shadow") {
       continuationJevTokens += event.jevInputTokens ?? 0;
       if (typeof event.latencyMs === "number") continuationLatencies.push(event.latencyMs);
@@ -124,8 +153,12 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
   const tasks = new Map<string, TaskRecord>();
   const requestDurations: number[] = [];
   continuation.p95LatencyMs = percentile(continuationLatencies, 0.95);
+  classifier.tierAgreement = classifier.compared ? tiersAgreed / classifier.compared : null;
+  classifier.modelAgreement = classifier.compared ? modelsAgreed / classifier.compared : null;
+  classifier.p50LatencyMs = percentile([...classifierLatencies], 0.5);
+  classifier.p95LatencyMs = percentile(classifierLatencies, 0.95);
   for (const event of events) {
-    if ("kind" in event && event.kind === "continuation-shadow") continue;
+    if ("kind" in event && (event.kind === "continuation-shadow" || event.kind === "classifier-shadow")) continue;
     const task = event.taskId ? (tasks.get(event.taskId) ?? (() => {
       const created: TaskRecord = { decisionRequests: new Set<string>(), responseRequests: [], responses: 0, input: 0, cached: 0, output: 0 };
       tasks.set(event.taskId!, created);
@@ -195,6 +228,7 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
     jevAttempts, jevErrors, jevErrorRate, warnings,
     ...(prices ? { agentCost: agentCost(prices, usages) } : {}),
     continuationShadow: continuation,
+    classifierShadow: classifier,
     shadow: { decisions: shadowDecisions, byModel: shadowByModel, tasks: shadowTasks.size, responses: shadowResponses,
       appliedUsd: shadowResponses ? appliedUsd : null, shadowUsd: shadowResponses ? shadowUsd : null },
     observedResponses, differentModelIds, observedInputTokens, cachedInputTokens, observedOutputTokens,

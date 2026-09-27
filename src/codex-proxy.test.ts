@@ -365,13 +365,16 @@ test("auto mode logs the shadow fast route while sending the balanced model", as
 test("a continuation keeps its model while the earlier exchange is judged and logged as a shadow route", async () => {
   const queries: import("./types.js").RouteQuery[] = [];
   const shadows: import("./types.js").ContinuationShadowEvent[] = [];
+  const onShadow = (event: import("./types.js").ContinuationShadowEvent | import("./types.js").ClassifierShadowEvent) => {
+    if (event.kind === "continuation-shadow") shadows.push(event);
+  };
   let calls = 0;
   const router = new CodexRouter({ settings: { ...defaultSettings("auto"), continuationShadow: true },
     classify: async (query) => {
       queries.push(query);
       calls += 1;
       return calls === 1 ? { tier: "balanced", confidence: 0.95, effortScore: 2 } : { tier: "strong", confidence: 0.9, effortScore: 3 };
-    }, onShadow: (event) => shadows.push(event) });
+    }, onShadow });
   router.ingestCatalog(catalog);
   assert.equal((await router.route(userBody("이 모듈 전체를 새 구조로 리팩터링해줘"))).model, "gpt-6-sol");
   const body = userBody("계속 진행해");
@@ -395,16 +398,53 @@ test("a continuation keeps its model while the earlier exchange is judged and lo
 
 test("continuation shadows skip sensitive earlier text and are off unless enabled", async () => {
   const shadows: import("./types.js").ContinuationShadowEvent[] = [];
+  const onShadow = (event: import("./types.js").ContinuationShadowEvent | import("./types.js").ClassifierShadowEvent) => {
+    if (event.kind === "continuation-shadow") shadows.push(event);
+  };
   let calls = 0;
   const classify = async () => { calls += 1; return { tier: "balanced" as const, confidence: 0.95 }; };
   const body = userBody("계속해");
   body.input = [{ role: "user", content: [{ type: "input_text", text: "password: hunter22 를 넣어서 로그인 고쳐줘" }] },
     ...(body.input as unknown[])];
-  const on = new CodexRouter({ settings: { ...defaultSettings("auto"), continuationShadow: true }, classify, onShadow: (event) => shadows.push(event) });
+  const on = new CodexRouter({ settings: { ...defaultSettings("auto"), continuationShadow: true }, classify, onShadow });
   await on.route(body);
   assert.equal(shadows[0]!.reason, "sensitive-previous-exchange");
-  const off = new CodexRouter({ settings: defaultSettings("auto"), classify, onShadow: (event) => shadows.push(event) });
+  const off = new CodexRouter({ settings: defaultSettings("auto"), classify, onShadow });
   await off.route(body);
   assert.equal(shadows.length, 1);
   assert.equal(calls, 0);
+});
+
+test("a shadow classifier is asked about the same Jev-routed turn and logged without changing the route", async () => {
+  const events: import("./types.js").ClassifierShadowEvent[] = [];
+  const asked: import("./types.js").RouteQuery[] = [];
+  const router = new CodexRouter({ settings: defaultSettings("auto"),
+    classify: async () => ({ tier: "balanced", confidence: 0.9, effortScore: 2 }),
+    shadowClassifier: { name: "kev-latest", classify: async (query) => {
+      asked.push(query);
+      return { tier: "fast", confidence: 0.95, effortScore: 0 };
+    } },
+    onShadow: (event) => { if (event.kind === "classifier-shadow") events.push(event); } });
+  router.ingestCatalog(catalog);
+  assert.equal((await router.route(userBody())).model, "gpt-6-sol");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(asked[0]!.prompt, "이 오류의 원인과 수정 방법을 분석해줘");
+  assert.equal(events.length, 1);
+  assert.deepEqual({ ...events[0], at: undefined, latencyMs: undefined, requestId: undefined, taskId: undefined }, {
+    at: undefined, latencyMs: undefined, requestId: undefined, taskId: undefined,
+    client: "codex", kind: "classifier-shadow", classifier: "kev-latest",
+    primaryTier: "balanced", primaryConfidence: 0.9, primaryModel: "gpt-6-sol", primaryEffort: "high",
+    shadowTier: "fast", shadowConfidence: 0.95, shadowModel: "gpt-6-luna", shadowEffort: "low", reason: "compared" });
+});
+
+test("a failing shadow classifier is logged and never affects the request", async () => {
+  const events: import("./types.js").ClassifierShadowEvent[] = [];
+  const router = new CodexRouter({ settings: defaultSettings("auto"),
+    classify: async () => ({ tier: "strong", confidence: 0.95 }),
+    shadowClassifier: { name: "kev-latest", classify: async () => { throw new Error("offline"); } },
+    onShadow: (event) => { if (event.kind === "classifier-shadow") events.push(event); } });
+  router.ingestCatalog(catalog);
+  assert.equal((await router.route(userBody())).model, "gpt-6-astra");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events[0]!.reason, "shadow-unavailable");
 });
