@@ -8,10 +8,11 @@
 
 | 함수 | 하는 일 | 결과 |
 | --- | --- | --- |
-| `validateAnswers(questions, answers)` | 질문 ID, 답변 종류, 허용 선택지, 확률 범위·합계, Score 값·기준 일치 여부 검사 | 검증된 SDK 답변 또는 `null` |
+| `validateAnswers(questions, answers)` | 질문 ID, 답변 종류, 허용 선택지, 확률 범위·합계, Score 값·기준 일치 여부 검사 | 성공 시 SDK 답변, 실패 시 문제의 `path`와 `code` |
+| `observe({ questions, run, context })` | 전달한 SDK 호출 실행, 시간 측정·응답 검증·오류 분류 | `ok`, 답변 또는 실패 정보, 관측 메타데이터 |
 | `toObservation(questions, outcome, context)` | 이미 받은 SDK 응답이나 오류를 검사하고 모델·요청 ID·처리 시간·토큰 사용량을 같은 형식으로 정리 | `ok`, 답변 또는 실패 종류, 관측 메타데이터 |
 
-`toObservation`은 시간 초과·취소·네트워크·HTTP 오류 등을 구분합니다. 알 수 없는 사용량은 `null`로 남기고 요청 원문·오류 메시지를 복사하지 않습니다. [응답 유틸리티 API](packages/decisions/README.md).
+`observe`와 `toObservation`은 시간 초과·취소·네트워크·HTTP 오류 등을 구분합니다. 알 수 없는 사용량은 `null`로 남기고 요청 원문·오류 메시지를 복사하지 않습니다. [응답 유틸리티 API](packages/decisions/README.md).
 
 ### 사례 평가·집계: `@starhn87/jev-eval`
 
@@ -51,8 +52,8 @@ npm run connect -- ../my-app
 | 설치 항목 | 설치 위치 | 용도 |
 | --- | --- | --- |
 | 공식 `@typesafe-ai/sdk@0.6.0` | `dependencies` | 앱에서 Jev API 호출, 질문 정의, 시간 제한·취소·재시도 설정 |
-| `@starhn87/jev-decisions@0.2.1` | `dependencies` | 서버 코드에서 `validateAnswers`·`toObservation` 사용 |
-| `@starhn87/jev-utils@0.4.0` | `devDependencies` | 프로젝트의 `npm run jev`로 샘플 질문 실행·관측 파일 집계 |
+| `@starhn87/jev-decisions@0.3.0` | `dependencies` | 서버 코드에서 `validateAnswers`·`observe`·`toObservation` 사용 |
+| `@starhn87/jev-utils@0.5.0` | `devDependencies` | 프로젝트의 `npm run jev`로 샘플 질문 실행·관측 파일 집계 |
 
 `package.json`에 위 의존성과 `jev` 명령을 추가하고, `npm install`로 `package-lock.json`·`node_modules/`를 갱신합니다. 프로젝트의 install/postinstall 스크립트는 실행하지 않습니다. `vendor/jev-utils/`에는 버전이 고정된 유틸리티·CLI 패키지 파일과 연결 기록을 보관합니다.
 
@@ -91,7 +92,7 @@ pnpm·yarn·Deno는 해당 실행 환경에 맞게 수동 설치합니다. [설�
 
 ```ts
 import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
-import { validateAnswers } from '@starhn87/jev-decisions';
+import { observe } from '@starhn87/jev-decisions';
 
 const client = new TypeSafeClient();
 const questions = {
@@ -102,16 +103,34 @@ const questions = {
   }),
 };
 
-const response = await client.systemOne({
-  state: { message: '계정 설정을 변경하고 싶어요' },
+const result = await observe({
   questions,
+  run: () => client.systemOne({
+    state: { message: '계정 설정을 변경하고 싶어요' }, questions,
+  }, { timeout: 1200 }).withResponse(),
+  context: {
+    definitionId: 'inquiry-kind', definitionVersion: '1',
+    requestedModel: client.defaultModel,
+  },
 });
-const answers = validateAnswers(questions, response.answers);
-if (!answers) throw new Error('질문에 맞지 않는 응답입니다.');
-console.log(answers.kind.choice);
+if (result.ok) console.log(result.answers.kind.choice);
+else if (result.error.kind === 'invalid_response') console.log(result.error.issues);
+else console.log(result.error.kind);
 ```
 
-`validateAnswers`는 형식을 검사합니다. 의미상 정답과 적용 기준은 앱의 사례로 평가합니다. SDK 오류까지 같은 형식으로 기록하려면 `toObservation`을 사용합니다. [검증·관측 API](packages/decisions/README.md), [평가·집계 API](packages/eval/README.md).
+`observe`는 전달한 `run`을 한 번 실행하고, 응답 검증이 끝날 때까지의 시간을 측정합니다. 시간 제한·취소·재시도는 공식 SDK 옵션을 그대로 사용합니다. 결과 저장·판단 적용·보류는 앱에서 처리합니다. 알 수 없는 메타데이터는 `null`입니다.
+
+응답 검사만 필요하면 `validateAnswers`를 단독으로 사용할 수 있습니다. 실패 예시는 `{ ok: false, issues: [{ path: ['kind', 'choice'], code: 'invalid_choice' }] }`입니다. 검증은 응답 형식을 확인하며, 의미상 정답과 적용 기준은 앱의 사례로 평가합니다. 라이브러리 사용에 CLI나 스킬은 필요하지 않습니다. [검증·관측 API와 0.2 버전에서의 변경](packages/decisions/README.md), [평가·집계 API](packages/eval/README.md).
+
+### 여러 프로젝트에서 공유하는 이점
+
+각 앱에 같은 라이브러리 버전을 설치해 검증·오류 분류·측정 규칙을 재사용한다는 뜻입니다. 동시에 실행하거나 중앙 서버에 연결할 필요는 없습니다.
+
+- 확률의 반올림 허용이나 오류 분류를 고칠 때 공통 구현과 테스트를 한곳에서 관리합니다.
+- 요청 실패·사용량 미상·시간 측정의 의미가 같아져 프로젝트마다 같은 집계 도구를 쓸 수 있습니다.
+- 앱에는 질문과 업무 정책이 남아, 전송·관측 처리 코드를 반복 작성하지 않아도 됩니다.
+
+앱이 고정한 버전을 갱신해야 수정이 반영됩니다. 서로 다른 질문의 정확도나 지연을 그대로 비교할 수는 없으며, 비용·정확도가 자동으로 개선되는 것도 아닙니다.
 
 ## 에이전트에서 공식 TypeSafe 스킬 사용하기
 

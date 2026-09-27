@@ -47,11 +47,11 @@ npm run jev -- decide --text "계정 설정을 변경하고 싶어요" --questio
 
 ## 서버에서 공식 SDK 사용하기
 
-앱은 공식 SDK의 질문 빌더와 `systemOne()`을 사용합니다. 간단한 응답 검사만 필요하다면 SDK 결과에 `validateAnswers(questions, response.answers)`를 적용하면 됩니다. 기존 관측 형식도 공유하려면 다음처럼 사용합니다.
+앱은 공식 SDK의 질문 빌더와 `systemOne()`을 사용합니다. 간단한 응답 검사만 필요하다면 SDK 결과에 `validateAnswers(questions, response.answers)`를 적용하면 됩니다. 시간 측정·검증·오류 분류도 함께 처리하려면 `observe`에 공식 SDK 호출을 전달합니다. `run`은 한 번 실행하며 SDK 자체의 재시도 설정은 유지됩니다.
 
 ```ts
 import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
-import { toObservation } from '@starhn87/jev-decisions';
+import { observe } from '@starhn87/jev-decisions';
 
 const questions = {
   kind: choice('계정 지원 문의인가요?', {
@@ -63,20 +63,19 @@ const questions = {
 const client = new TypeSafeClient({
   apiKey, defaultModel: 'jev-1.13.0', retry: { maxRetries: 0 }, logLevel: 'off',
 });
-const started = performance.now();
-let outcome;
-try {
-  outcome = await client.systemOne({ state: { message }, questions }, {
+const result = await observe({
+  questions,
+  run: () => client.systemOne({ state: { message }, questions }, {
     timeout: 1200, signal,
-  }).withResponse();
-} catch (error) {
-  outcome = { error };
-}
-const result = toObservation(questions, outcome, {
-  definitionId: 'inquiry-kind', definitionVersion: '1',
-  requestedModel: client.defaultModel, durationMs: performance.now() - started,
+  }).withResponse(),
+  context: {
+    definitionId: 'inquiry-kind', definitionVersion: '1',
+    requestedModel: client.defaultModel,
+  },
 });
 ```
+
+`validateAnswers`도 `{ ok: true, answers }` 또는 `{ ok: false, issues }`를 반환합니다. `issues`에는 문제가 발생한 위치와 코드가 들어 있습니다. CLI나 스킬 없이 라이브러리만 사용해도 됩니다.
 
 앱은 `result.ok`를 확인한 뒤 검증된 답변을 사용하고, 불확실성·실패 시 기존 처리 유지나 검토 요청 등 자체 정책을 적용합니다. `aborted`이면 해당 요청의 후속 작업을 중단합니다. 저장할 필요가 있으면 앱의 DB나 로그에 `result`를 전달합니다. 유틸리티가 저장을 수행하지 않습니다.
 
@@ -98,12 +97,12 @@ const result = toObservation(questions, outcome, {
 
 다른 패키지 관리자를 사용하거나 유틸리티만 필요하다면 clone에 포함된 버전이 고정된 패키지 파일을 프로젝트 의존성으로 직접 설치할 수 있습니다. 로컬 패키지 파일을 프로젝트에 보관하려면:
 
-빌드된 현재 응답 유틸리티 버전 `0.2.1`는 Jev Utils의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
+빌드된 현재 응답 유틸리티 버전 `0.3.0`는 Jev Utils의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
 
 ```sh
 mkdir -p vendor
-cp ../jev-utils/artifacts/starhn87-jev-decisions-0.2.1.tgz vendor/
-npm install @typesafe-ai/sdk@0.6.0 ./vendor/starhn87-jev-decisions-0.2.1.tgz
+cp ../jev-utils/artifacts/starhn87-jev-decisions-0.3.0.tgz vendor/
+npm install @typesafe-ai/sdk@0.6.0 ./vendor/starhn87-jev-decisions-0.3.0.tgz
 ```
 
 이 파일은 빌드된 검증·관측 유틸리티·타입·라이선스를 담은 npm 패키지입니다. 사용하는 패키지 관리자로 설치하고, 파일과 manifest·lockfile을 함께 커밋합니다. 이 수동 방식은 CLI나 프로젝트 스킬을 생성하지 않습니다.

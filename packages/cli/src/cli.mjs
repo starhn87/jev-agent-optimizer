@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { TypeSafeClient, TypeSafeError } from '@typesafe-ai/sdk';
-import { toObservation } from '../../decisions/dist/index.js';
+import { observe } from '../../decisions/dist/index.js';
 import { summarize } from '../../eval/index.mjs';
 import { cliCommand, configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
@@ -55,20 +55,16 @@ async function decide(input, flags, demo = false) {
     console.log(`입력 문장: ${input.state.message}\n질문: ${input.questions.decision.instructions}\n선택지: ${Object.keys(input.questions.decision.criteria).join(' / ')}\n`);
   }
   const timeoutMs = flags['--timeout-ms'] ? Number(flags['--timeout-ms']) : 1200;
-  const start = performance.now();
-  let outcome;
-  try {
+  const result = await observe({ questions: input.questions, context: {
+    definitionId: input.definitionId ?? 'cli-run', definitionVersion: input.definitionVersion ?? '1',
+    requestedModel: config.model,
+  }, run: () => {
     const wire = { state: input.state, questions: input.questions, model: config.model };
     if (new TextEncoder().encode(JSON.stringify(wire)).byteLength > 256_000) throw new TypeSafeError('CLI request exceeds 256 KB');
     const client = new TypeSafeClient({ apiKey: config.apiKey, defaultModel: config.model,
       baseURL: config.baseURL, fetch: config.fetch, retry: { maxRetries: 0 }, logLevel: 'off' });
-    outcome = await client.systemOne(wire, { timeout: timeoutMs }).withResponse();
-  } catch (error) { outcome = { error }; }
-  const result = toObservation(input.questions, outcome, {
-    definitionId: input.definitionId ?? 'cli-run', definitionVersion: input.definitionVersion ?? '1',
-    requestedModel: config.model, durationMs: performance.now() - start,
-  });
-  result.meta.durationMs = performance.now() - start;
+    return client.systemOne(wire, { timeout: timeoutMs }).withResponse();
+  } });
   if (flags['--json']) console.log(JSON.stringify(result, null, 2));
   else if (result.ok) {
     if (demo) {
@@ -80,7 +76,10 @@ async function decide(input, flags, demo = false) {
       for (const [name, answer] of Object.entries(result.answers)) console.log(`${name}: ${answer.type === 'choice' ? answer.choice : answer.type === 'score' ? answer.score : answer.noul}`);
       console.log(`처리 시간: ${Math.round(result.meta.durationMs)}ms`);
     }
-  } else console.error(`Jev 요청 실패: ${result.error.kind}${result.error.status ? ` (HTTP ${result.error.status})` : ''}`);
+  } else {
+    console.error(`Jev 요청 실패: ${result.error.kind}${result.error.status ? ` (HTTP ${result.error.status})` : ''}`);
+    if (result.error.kind === 'invalid_response') for (const issue of result.error.issues) console.error(`  ${JSON.stringify(issue.path)}: ${issue.code}`);
+  }
   if (!result.ok) process.exitCode = 1;
 }
 async function main() {

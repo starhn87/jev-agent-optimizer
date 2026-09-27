@@ -9,13 +9,14 @@ Jev Utils는 공식 TypeSafe SDK와 함께 사용하는 응답 검증·관측·�
 | TypeSafe API·공식 SDK | Jev 판단, 질문 빌더와 타입, 요청 옵션, 시간 제한·취소·재시도·오류 처리 | 직접 사용합니다. 새 클라이언트나 질문 타입을 만들지 않습니다. |
 | TypeSafe 공식 스킬 | 판단 지점 탐색, 질문·워크플로 설계와 구현 | 이 저장소의 스킬은 로컬 CLI 실험과 결과 집계를 안내합니다. |
 | Kev | 자체 모델 학습·확률 보정·평가·서빙, TypeSafe 호환 API | 이 저장소는 모델을 만들지 않습니다. Kev 서버와의 호환성은 별도로 검증해야 합니다. |
-| Jev Utils | 받은 응답 검사, 공통 관측 결과 변환, 사례 평가·집계 | 요청이나 업무 정책을 대신 실행하지 않습니다. |
+| Jev Utils | 받은 응답 검사, 공통 관측 결과 변환, 사례 평가·집계 | 전달받은 SDK 실행 함수의 측정·검증·오류 정리를 돕고, 업무 정책과 저장은 앱에 남깁니다. |
 
 2026-09-27에 확인한 근거: [공식 SDK](https://github.com/typesafe-ai/typesafe-sdk-js/blob/66880ccded6cb642dc1809620c2b108c33730214/src/client.ts), [공식 질문·응답 타입](https://github.com/typesafe-ai/typesafe-sdk-js/blob/66880ccded6cb642dc1809620c2b108c33730214/src/types.ts), [공식 스킬](https://github.com/typesafe-ai/skills/blob/65a39f393687675ce170e6094757de20370365b9/skills/typesafe-ai/SKILL.md), [Kev](https://github.com/jaredpalmer/kev/blob/5920c5fe4ca8e0970ed4209ac2c9b8e18bea5109/README.md).
 
 ## 남기는 공통 유틸리티
 
-- `validateAnswers`: 공식 SDK의 질문 타입을 받아 응답 ID·선택지·확률·Score 값과 legend를 검사합니다. 업무상 정답을 판정하지는 않습니다.
+- `validateAnswers`: 공식 SDK의 질문 타입을 받아 응답 ID·선택지·확률·Score 값과 legend를 검사합니다. 검증 실패의 위치와 코드를 반환하며, 업무상 정답을 판정하지는 않습니다.
+- `observe`: 앱이 전달한 SDK 실행 함수를 한 번 호출하고 응답 검증까지의 시간·오류·사용량을 같은 형식으로 반환합니다. SDK 호출 옵션·재시도는 변경하지 않습니다.
 - `toObservation`: 이미 받은 SDK 응답 또는 오류를 검증된 답변·실패 종류·관측 메타데이터로 변환합니다. 원문·오류 메시지를 복사하거나 관측을 저장하지 않습니다.
 - `@starhn87/jev-eval`: 호출자가 제공한 실행·정답 판정 함수로 사례를 평가하거나 기존 관측을 집계합니다. 실패·보류·미라벨·알 수 없는 사용량을 구분합니다.
 
