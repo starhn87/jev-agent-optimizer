@@ -5,14 +5,16 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { stageCliPackage } from '../scripts/publish-cli-branch.mjs';
 
-let staging, cli;
+let staging, cli, archive;
 before(() => {
   staging = mkdtempSync(join(tmpdir(), 'jev-cli-install-'));
   const [pack] = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--workspace', '@starhn87/jev-decision-kit', '--json', '--pack-destination', staging], { encoding: 'utf8' }));
   assert.ok(pack.files.every(file => !/(^|\/)(?:\.env|\.local|tests|src|apps|claude-mod|hooks)(?:\/|$)/.test(file.path)));
   assert.deepEqual(pack.files.filter(file => file.path.startsWith('dist/')).map(file => file.path), ['dist/cli.mjs']);
   assert.ok(pack.files.some(file => file.path === 'skills/jev-decision-kit/SKILL.md'));
+  archive = join(staging, pack.filename);
   writeFileSync(join(staging, 'package.json'), '{"private":true}');
   execFileSync('npm', ['install', '--no-audit', '--no-fund', join(staging, pack.filename)], { cwd: staging, stdio: 'pipe' });
   cli = join(staging, 'node_modules/.bin/jev-decision-kit');
@@ -33,6 +35,14 @@ test('packaged CLI runs init, examples, decisions and evaluation independently',
   let result = h.run(['demo']);
   assert.equal(result.status, 1); assert.match(result.stderr, /init/);
   result = h.run(['demo', '--offline']); assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /모의 실행/);
+  assert.match(result.stdout, /입력 문장: 계정 설정을 변경하고 싶어요/);
+  assert.match(result.stdout, /질문: 이 문장은 계정 지원 문의인가요\?/);
+  assert.match(result.stdout, /선택지: 예 \/ 아니오 \/ 판단보류/);
+  assert.match(result.stdout, /판단 결과: 예 — 계정 지원 문의에 해당합니다\./);
+  assert.match(result.stdout, /모델 신뢰도: 97.0%/);
+  assert.match(result.stdout, /처리 시간: \d+ms \(모의 응답 처리\)/);
+  result = h.run(['demo', '--offline', '--json']); assert.equal(result.status, 0);
+  assert.equal(JSON.parse(result.stdout).answers.decision.choice, '예');
   assert.equal(existsSync(join(h.home, '.jev-decision-kit')), false);
   result = h.run(['init', '--stdin'], 'synthetic-key\n'); assert.equal(result.status, 0, result.stderr); assert.ok(!result.stdout.includes('synthetic-key'));
   const secret = join(h.home, '.jev-decision-kit/.env');
@@ -43,22 +53,52 @@ test('packaged CLI runs init, examples, decisions and evaluation independently',
     let body = ''; req.on('data', part => { body += part; });
     req.on('end', () => {
       const payload = JSON.parse(body);
-      assert.equal(req.headers.authorization, 'Bearer synthetic-key'); assert.equal(payload.state.message, 'hello');
-      assert.deepEqual(Object.keys(payload.questions.decision.criteria), ['yes', 'no']);
+      const demo = payload.state.message === '계정 설정을 변경하고 싶어요';
+      assert.equal(req.headers.authorization, 'Bearer synthetic-key');
+      if (!demo) assert.equal(payload.state.message, 'hello');
+      const choices = demo ? ['예', '아니오', '판단보류'] : ['yes', 'no'];
+      assert.deepEqual(Object.keys(payload.questions.decision.criteria), choices);
+      const choice = demo && req.url.startsWith('/deferred') ? '판단보류' : demo && req.url.startsWith('/no') ? '아니오' : choices[0];
+      const probabilities = Object.fromEntries(choices.map(label => [label, label === choice ? 0.9 : 0.1 / (choices.length - 1)]));
       res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ model: 'jev-1.13.0', answers: { decision: { type: 'choice', choice: 'yes', confidence: 0.9, probabilities: { yes: 0.9, no: 0.1 } } } }));
+      res.end(JSON.stringify({ model: 'jev-1.13.0', answers: { decision: { type: 'choice', choice, confidence: 0.9, probabilities } } }));
     });
   });
   try {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const output = await new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [cli, 'decide', '--text', 'hello', '--question', 'Is this relevant?', '--choices', 'yes,no', '--json', '--base-url', `http://127.0.0.1:${server.address().port}`], { cwd: staging, env: h.env });
+    const baseURL = `http://127.0.0.1:${server.address().port}`;
+    const run = args => new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [cli, ...args], { cwd: staging, env: h.env });
       let stdout = '', stderr = ''; child.stdout.on('data', part => { stdout += part; }); child.stderr.on('data', part => { stderr += part; });
       child.on('error', reject); child.on('close', code => code === 0 ? resolve(stdout) : reject(new Error(stderr)));
     });
+    const output = await run(['decide', '--text', 'hello', '--question', 'Is this relevant?', '--choices', 'yes,no', '--json', '--base-url', baseURL]);
     assert.equal(JSON.parse(output).answers.decision.choice, 'yes');
+    const demo = await run(['demo', '--base-url', baseURL]);
+    assert.match(demo, /Jev 판단 예제 — 실제 API 호출/); assert.match(demo, /계정 지원 문의에 해당합니다\./);
+    assert.match(demo, /처리 시간: \d+ms \(API 요청부터 응답 검증 완료까지\)/);
+    assert.match(await run(['demo', '--base-url', `${baseURL}/no`]), /판단 결과: 아니오 — 계정 지원 문의에 해당하지 않습니다\./);
+    assert.match(await run(['demo', '--base-url', `${baseURL}/deferred`]), /판단 결과: 판단보류 — 계정 지원 문의인지 판단을 보류했습니다\./);
     assert.equal(existsSync(join(h.home, '.codex/config.toml')), false); assert.equal(existsSync(join(h.home, '.claude/settings.json')), false);
   } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('Git installation runs the standalone CLI and skill without build scripts or workspace dependencies', t => {
+  const h = fixture(t), source = join(staging, 'git-package'), client = join(staging, 'git-client');
+  const version = stageCliPackage(archive, source);
+  const manifest = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
+  assert.equal(manifest.scripts, undefined); assert.equal(manifest.workspaces, undefined);
+  const git = args => execFileSync('git', args, { cwd: source, stdio: 'pipe' });
+  git(['init', '--initial-branch=cli']); git(['add', '.']);
+  git(['-c', 'user.name=Codex', '-c', 'user.email=noreply@openai.com', 'commit', '-m', 'test(cli): stage install fixture\n\nCo-authored-by: Codex <noreply@openai.com>']);
+  mkdirSync(client); writeFileSync(join(client, 'package.json'), '{"private":true}');
+  execFileSync('npm', ['install', '--no-audit', '--no-fund', `git+file://${source}#cli`], { cwd: client, env: h.env, stdio: 'pipe' });
+  const installed = join(client, 'node_modules/@starhn87/jev-decision-kit');
+  assert.equal(JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8')).version, version);
+  const run = args => execFileSync(process.execPath, [join(installed, 'dist/cli.mjs'), ...args], { env: h.env, encoding: 'utf8' });
+  assert.match(run(['demo', '--offline']), /판단 결과: 예 — 계정 지원 문의에 해당합니다/);
+  run(['agent', 'install', 'codex']);
+  assert.match(h.get('.agents/skills/jev-decision-kit/SKILL.md'), /jev-decision-kit decide/);
 });
 
 test('agent help, diagnostics and uninstalled removal have no side effects; removed commands fail', t => {

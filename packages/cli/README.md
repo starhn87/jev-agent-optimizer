@@ -1,14 +1,16 @@
 # Jev Decision Kit CLI
 
-Configure an API key, run validated Jev decisions and evaluate observations from one command. Node.js 22+ and npm are required.
+Configure an API key, run validated Jev decisions and evaluate observations from one command. Node.js 22+, npm and Git are required.
 
 ```sh
-npm install -g https://github.com/starhn87/jev-decision-kit/releases/latest/download/jev-decision-kit.tgz
+npm install -g github:starhn87/jev-decision-kit#cli
 jev-decision-kit init
 jev-decision-kit demo
 ```
 
-`init` prompts for your TypeSafe API key without echoing it and stores it in `~/.jev-decision-kit/.env` with owner-only permissions. `demo` uses a ready-made question. No JavaScript files or repository checkout are needed.
+Keep `#cli` in the installation command to install the ready-to-run package from GitHub. npm login is not required.
+
+`init` prompts for your TypeSafe API key without echoing it and stores it in `~/.jev-decision-kit/.env` with owner-only permissions. `demo` asks whether a sample sentence is an account-support inquiry, showing the input, question, choices, explained result, model confidence and elapsed time. `예` means yes, `아니오` means no, and `판단보류` means deferred. No JavaScript files or repository checkout are needed.
 
 ```sh
 jev-decision-kit demo --offline

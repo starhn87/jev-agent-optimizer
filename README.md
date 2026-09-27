@@ -4,15 +4,32 @@
 
 ## 바로 실행하기
 
-Node.js 22 이상과 npm이 필요합니다. 아래 세 명령을 순서대로 실행하세요.
+Node.js 22 이상과 npm, Git이 필요합니다. 아래 세 명령을 순서대로 실행하세요.
 
 ```sh
-npm install -g https://github.com/starhn87/jev-decision-kit/releases/latest/download/jev-decision-kit.tgz
+npm install -g github:starhn87/jev-decision-kit#cli
 jev-decision-kit init
 jev-decision-kit demo
 ```
 
-`init`이 TypeSafe API 키를 입력받아 저장합니다. 입력한 키는 화면에 표시하지 않고 사용자 폴더 `~/.jev-decision-kit/.env`에 저장합니다. `demo`는 준비된 질문을 Jev에 보내고 판단 결과와 처리 시간을 보여줍니다. 예제 파일을 만들거나 코드를 작성할 필요가 없습니다.
+첫 명령은 공개 GitHub 패키지를 설치합니다. `#cli`까지 포함해서 실행하세요. npm 로그인은 필요하지 않습니다.
+
+`init`이 TypeSafe API 키를 입력받아 저장합니다. 입력한 키는 화면에 표시하지 않고 사용자 폴더 `~/.jev-decision-kit/.env`에 저장합니다. `demo`는 준비된 문장이 계정 지원 문의인지 Jev에 묻고, 입력·질문·선택지와 판단 결과를 함께 보여줍니다.
+
+```text
+Jev 판단 예제 — 실제 API 호출
+
+입력 문장: 계정 설정을 변경하고 싶어요
+질문: 이 문장은 계정 지원 문의인가요?
+선택지: 예 / 아니오 / 판단보류
+
+판단 결과: 예 — 계정 지원 문의에 해당합니다.
+모델 신뢰도: 97.0%
+처리 시간: 235ms (API 요청부터 응답 검증 완료까지)
+Jev 모델: jev-1.13.0
+```
+
+위는 출력 예시이며 실제 결과·신뢰도·처리 시간은 실행마다 달라집니다. 신뢰도는 모델이 보고한 값이며, 정확도는 별도의 정답 데이터로 평가합니다.
 
 키 없이 명령이 동작하는지 먼저 확인하려면:
 
@@ -88,4 +105,4 @@ npm run test:compat
 npm run pack:cli
 ```
 
-실제 배포 패키지를 빈 프로젝트에 설치해 CLI·타입·런타임 호환성을 확인합니다. [릴리스 절차](docs/releases.md). 현재 npm 명령은 GitHub 릴리스 파일을 설치하며 npm registry 등록은 아직 하지 않았습니다.
+실제 배포 패키지를 빈 프로젝트에 설치해 CLI·타입·런타임 호환성을 확인합니다. [릴리스 절차](docs/releases.md). CLI는 GitHub의 설치용 `cli` 브랜치에서 배포하며 npm registry 등록은 아직 하지 않았습니다.

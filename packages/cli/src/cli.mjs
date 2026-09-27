@@ -32,28 +32,38 @@ function options(args, allowed) {
   }
   return parsed;
 }
-function request(text = '계정 설정을 변경하고 싶어요', question = '이 요청은 계정 지원에 관한 문의인가?', choices = ['관련있음', '관련없음', '판단보류']) {
+function request(text = '계정 설정을 변경하고 싶어요', question = '이 문장은 계정 지원 문의인가요?', choices = ['예', '아니오', '판단보류']) {
   return { definitionId: 'cli-choice', definitionVersion: '1', state: { message: text },
     questions: { decision: { type: 'choice', instructions: question, criteria: Object.fromEntries(choices.map(choice => [choice, choice])) } } };
 }
-async function decide(input, flags) {
+async function decide(input, flags, demo = false) {
   const config = configuration();
   if (flags['--model']) config.model = flags['--model'];
   if (flags['--base-url']) config.baseURL = flags['--base-url'];
   if (flags['--offline']) {
     config.apiKey = 'offline-example';
     config.fetch = async () => new Response(JSON.stringify({ model: config.model, answers: {
-      decision: { type: 'choice', choice: '관련있음', confidence: 0.97,
-        probabilities: { 관련있음: 0.97, 관련없음: 0.02, 판단보류: 0.01 } },
+      decision: { type: 'choice', choice: '예', confidence: 0.97,
+        probabilities: { 예: 0.97, 아니오: 0.02, 판단보류: 0.01 } },
     } }), { headers: { 'content-type': 'application/json' } });
   } else if (!config.apiKey) throw new Error('먼저 jev-decision-kit init을 실행하세요. 키 없이 확인하려면 demo --offline을 사용하세요.');
+  if (demo && !flags['--json']) {
+    console.log(`Jev 판단 예제 — ${flags['--offline'] ? '모의 실행 (네트워크 호출 없음)' : '실제 API 호출'}\n`);
+    console.log(`입력 문장: ${input.state.message}\n질문: ${input.questions.decision.instructions}\n선택지: ${Object.keys(input.questions.decision.criteria).join(' / ')}\n`);
+  }
   const timeoutMs = flags['--timeout-ms'] ? Number(flags['--timeout-ms']) : 1200;
   const result = await createDecisionClient(config).decide(input, { timeoutMs });
   if (flags['--json']) console.log(JSON.stringify(result, null, 2));
   else if (result.ok) {
-    if (flags['--offline']) console.log('모의 실행 — 네트워크 호출 없음');
-    for (const [name, answer] of Object.entries(result.answers)) console.log(`${name}: ${answer.type === 'choice' ? answer.choice : answer.type === 'score' ? answer.score : answer.noul}`);
-    console.log(`처리 시간: ${Math.round(result.meta.durationMs)}ms`);
+    if (demo) {
+      const answer = result.answers.decision;
+      const meaning = { 예: '계정 지원 문의에 해당합니다.', 아니오: '계정 지원 문의에 해당하지 않습니다.', 판단보류: '계정 지원 문의인지 판단을 보류했습니다.' };
+      console.log(`판단 결과: ${answer.choice} — ${meaning[answer.choice]}\n모델 신뢰도: ${(answer.confidence * 100).toFixed(1)}%`);
+      console.log(`처리 시간: ${Math.round(result.meta.durationMs)}ms (${flags['--offline'] ? '모의 응답 처리' : 'API 요청부터 응답 검증 완료까지'})\nJev 모델: ${result.meta.model ?? result.meta.requestedModel}`);
+    } else {
+      for (const [name, answer] of Object.entries(result.answers)) console.log(`${name}: ${answer.type === 'choice' ? answer.choice : answer.type === 'score' ? answer.score : answer.noul}`);
+      console.log(`처리 시간: ${Math.round(result.meta.durationMs)}ms`);
+    }
   } else console.error(`Jev 요청 실패: ${result.error.kind}${result.error.status ? ` (HTTP ${result.error.status})` : ''}`);
   if (!result.ok) process.exitCode = 1;
 }
@@ -67,7 +77,7 @@ async function main() {
     console.log(`API 키: ${apiKey ? '설정됨 (값은 표시하지 않음)' : '설정 필요 — jev-decision-kit init'}\nJev 모델: ${model}\n설정 위치: ${keyFile()}`);
     return;
   }
-  if (command === 'demo') return decide(request(), options(args, ['--offline', '--json', '--model', '--timeout-ms', '--base-url']));
+  if (command === 'demo') return decide(request(), options(args, ['--offline', '--json', '--model', '--timeout-ms', '--base-url']), true);
   if (command === 'decide') {
     const flags = options(args, ['--text', '--question', '--choices', '--json', '--model', '--timeout-ms', '--base-url']);
     const choices = flags['--choices']?.split(',').map(choice => choice.trim());
