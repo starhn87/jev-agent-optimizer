@@ -152,7 +152,7 @@ export class CodexRouter {
   }
 
   health(): Record<string, unknown> {
-    return { status: "ok", service: "agent-model-router", mode: this.options.settings.mode,
+    return { status: "ok", service: "jev-decision-kit", mode: this.options.settings.mode,
       responseFooter: this.options.responseFooter !== false && this.options.settings.mode === "auto" };
   }
 
@@ -302,7 +302,7 @@ function respondError(response: ServerResponse, status: number, message: string)
   // A partial SSE response must fail at the client, not appear successfully completed.
   if (response.headersSent) return void response.destroy();
   response.writeHead(status, { "content-type": "application/json" });
-  response.end(JSON.stringify({ error: { type: "agent_router_error", message } }));
+  response.end(JSON.stringify({ error: { type: "jev_decision_kit_error", message } }));
 }
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse, router: CodexRouter,

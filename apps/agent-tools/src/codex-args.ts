@@ -1,4 +1,4 @@
-const PROVIDER = "agent_router";
+const PROVIDER = "jev_decision_kit";
 
 export function codexChildEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const childEnv = { ...env };

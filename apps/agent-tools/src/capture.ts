@@ -45,7 +45,7 @@ export function captureFilesFor(decision: string, root = REPO_ROOT): string[] {
 
 // Opt-in: nothing is written unless JEV_KIT_CAPTURE=1 (set in .env, which serve and the skills load).
 export function captureEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return (env.JEV_KIT_CAPTURE ?? env.JAO_CAPTURE ?? env.AMR_CAPTURE) === "1";
+  return env.JEV_KIT_CAPTURE === "1";
 }
 
 function append(path: string, line: string): void {

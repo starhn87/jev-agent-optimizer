@@ -130,7 +130,7 @@ function shadowClassifier(parsed: Parsed): ProxyOptions["shadowClassifier"] {
   const model = parsed.shadowClassifierModel ?? "kev-latest";
   const onExchange = captureSink("route");
   return { name: model, classify: (query) => askJev(query, { endpoint, model, onExchange,
-    apiKey: process.env.JEV_KIT_SHADOW_CLASSIFIER_KEY || process.env.JAO_SHADOW_CLASSIFIER_KEY || process.env.AMR_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
+    apiKey: process.env.JEV_KIT_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
 }
 
 async function runCodex(parsed: Parsed): Promise<void> {
@@ -205,27 +205,26 @@ async function runClaudeShadowHook(parsed: Parsed): Promise<void> {
 
 function help(): void {
   process.stdout.write(`Jev Decision Kit\n\n` +
-    `Jev key: TYPESAFE_API_KEY in the process environment.\n` +
-    `         For a local .env file, run: node --env-file=.env dist/cli.js ...\n` +
+    `Jev key: run jev-decision-kit init, or set TYPESAFE_API_KEY.\n` +
     `         macOS login Keychain is optional via the flags below.\n\n` +
-    `  jev-decision-kit install [both|codex|claude]  (Codex background setup: macOS)\n` +
-    `  jev-decision-kit doctor\n` +
-    `  jev-decision-kit uninstall [both|codex|claude]\n\n` +
-    `  jev-decision-kit codex [router options] -- [codex arguments]\n` +
-    `  jev-decision-kit serve [router options]  (for Codex desktop; default port 8765; /status with --metrics)\n` +
-    `  jev-decision-kit claude-shadow-hook --metrics FILE [--keychain-service NAME --keychain-account USER]\n` +
-    `  jev-decision-kit report FILE [--prices PRICES.json] [--since ISO-TIME]  (agent cost and savings estimate from your price table)\n\n` +
-    `  jev-decision-kit compare FILE  (paired fixed and auto results; no model calls)\n` +
-    `  jev-decision-kit compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE]  (prefill compare input from two metrics logs)\n` +
-    `  jev-decision-kit search FILE|- [--metrics FILE]  (search-result decision; up to two paid Jev calls)\n` +
-    `  jev-decision-kit search-report FILE\n` +
-    `  jev-decision-kit search-evaluate FILE  (human-labelled needed-source recall)\n` +
-    `  jev-decision-kit memory-filter FILE|- [--metrics FILE]  (passage selection; up to one paid Jev call)\n` +
-    `  jev-decision-kit memory-report FILE\n` +
-    `  jev-decision-kit memory-evaluate FILE  (human-labelled needed-passage recall)\n` +
-    `  jev-decision-kit label-queue DECISION [--limit N]  (review file from .local/capture/, needs JEV_KIT_CAPTURE=1 earlier)\n` +
-    `  jev-decision-kit label-apply REVIEWED-QUEUE.json  (merge filled labels into .local/labels/DECISION.jsonl)\n` +
-    `  jev-decision-kit export-training DECISION --out PREFIX [--holdout-percent 15]  (Kev-format training/holdout JSONL)\n` +
+    `  jev-decision-kit agent install [both|codex|claude]  (Codex background setup: macOS)\n` +
+    `  jev-decision-kit agent doctor\n` +
+    `  jev-decision-kit agent uninstall [both|codex|claude]\n\n` +
+    `  jev-decision-kit agent codex [router options] -- [codex arguments]\n` +
+    `  jev-decision-kit agent serve [router options]  (for Codex desktop; default port 8765; /status with --metrics)\n` +
+    `  jev-decision-kit agent claude-shadow-hook --metrics FILE [--keychain-service NAME --keychain-account USER]\n` +
+    `  jev-decision-kit agent report FILE [--prices PRICES.json] [--since ISO-TIME]  (agent cost and savings estimate from your price table)\n\n` +
+    `  jev-decision-kit agent compare FILE  (paired fixed and auto results; no model calls)\n` +
+    `  jev-decision-kit agent compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE]  (prefill compare input from two metrics logs)\n` +
+    `  jev-decision-kit agent search FILE|- [--metrics FILE]  (search-result decision; up to two paid Jev calls)\n` +
+    `  jev-decision-kit agent search-report FILE\n` +
+    `  jev-decision-kit agent search-evaluate FILE  (human-labelled needed-source recall)\n` +
+    `  jev-decision-kit agent memory-filter FILE|- [--metrics FILE]  (passage selection; up to one paid Jev call)\n` +
+    `  jev-decision-kit agent memory-report FILE\n` +
+    `  jev-decision-kit agent memory-evaluate FILE  (human-labelled needed-passage recall)\n` +
+    `  jev-decision-kit agent label-queue DECISION [--limit N]  (review file from .local/capture/, needs JEV_KIT_CAPTURE=1 earlier)\n` +
+    `  jev-decision-kit agent label-apply REVIEWED-QUEUE.json  (merge filled labels into .local/labels/DECISION.jsonl)\n` +
+    `  jev-decision-kit agent export-training DECISION --out PREFIX [--holdout-percent 15]  (Kev-format training/holdout JSONL)\n` +
     `Router options: --mode pass|force|shadow|auto, --force-model ID,\n` +
     `  --baseline-model ID, --fast-model ID, --balanced-model ID,\n` +
     `  --strong-model ID, --downgrade-confidence 0..1, --shadow-fast-confidence 0..1 (log only),\n` +
@@ -240,7 +239,7 @@ async function main(): Promise<void> {
   if (command === "install" || command === "uninstall" || command === "doctor") {
     const client = args[0] ?? "both";
     if ((command === "doctor" && args.length) || args.length > 1 || !["both", "codex", "claude"].includes(client)) {
-      throw new Error("사용법: jev-decision-kit install|uninstall [both|codex|claude], jev-decision-kit doctor");
+      throw new Error("사용법: jev-decision-kit agent install|uninstall [both|codex|claude], jev-decision-kit agent doctor");
     }
     const context = defaultInstallContext();
     process.stdout.write(command === "doctor" ? await doctor(context)
@@ -248,7 +247,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "report") {
-    const usage = "usage: jev-decision-kit report FILE [--prices PRICES.json] [--since ISO-TIME]";
+    const usage = "usage: jev-decision-kit agent report FILE [--prices PRICES.json] [--since ISO-TIME]";
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {
       const flag = args[index], value = args[index + 1];
@@ -274,7 +273,7 @@ async function main(): Promise<void> {
     for (let index = 0; index < rest.length; index += 2) {
       const flag = rest[index], value = rest[index + 1];
       if (!flag || !["--prices", "--fixed-policy", "--auto-policy"].includes(flag) || !value || options.has(flag)) {
-        throw new Error("usage: jev-decision-kit compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE] [--fixed-policy NAME] [--auto-policy NAME]");
+        throw new Error("usage: jev-decision-kit agent compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE] [--fixed-policy NAME] [--auto-policy NAME]");
       }
       options.set(flag, value);
     }
@@ -360,7 +359,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "label-queue") {
-    const usage = "usage: jev-decision-kit label-queue DECISION [--limit N]";
+    const usage = "usage: jev-decision-kit agent label-queue DECISION [--limit N]";
     const decision = args[0];
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {
@@ -375,7 +374,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "label-apply") {
-    if (args.length !== 1) throw new Error("usage: jev-decision-kit label-apply REVIEWED-QUEUE.json");
+    if (args.length !== 1) throw new Error("usage: jev-decision-kit agent label-apply REVIEWED-QUEUE.json");
     const size = statSync(args[0]!).size;
     if (size > 16 * 1024 * 1024) throw new Error("label queue file too large");
     const items = JSON.parse(readFileSync(args[0]!, "utf8")) as unknown;
@@ -387,7 +386,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "export-training") {
-    const usage = "usage: jev-decision-kit export-training DECISION --out PREFIX [--holdout-percent 0-100]";
+    const usage = "usage: jev-decision-kit agent export-training DECISION --out PREFIX [--holdout-percent 0-100]";
     const decision = args[0];
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {

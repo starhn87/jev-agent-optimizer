@@ -36,7 +36,7 @@ macOS에서 디스크에 평문 `.env`를 두고 싶지 않을 때만 이 방식
 2. `Command`+`N`으로 새 암호 항목을 만든다. 메뉴를 사용한다면 **파일 > 새로운 암호 항목**을 선택한다.
 3. 아래 값을 입력하고 **추가**를 누른다. 암호 값은 키체인 UI에서 직접 입력한다.
 
-- 항목 이름: `agent-model-router-typesafe`
+- 항목 이름: `jev-decision-kit-typesafe`
 - 계정: 현재 macOS 계정 이름(`id -un` 결과)
 - 암호: TypeSafe API 키
 
@@ -47,14 +47,14 @@ macOS에서 디스크에 평문 `.env`를 두고 싶지 않을 때만 이 방식
 아래 `security find-generic-password` 절차는 **로그인** 키체인의 파일 기반 항목을 읽는다. iCloud 키체인의 항목은 별도의 데이터 보호 키체인에 있으므로 이 명령으로는 찾지 못할 수 있다([Apple 기술 문서](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)). iCloud 항목은 그대로 두고, 같은 키를 **로그인** 키체인에 추가한다. 키체인 접근에서 로그인 키체인을 선택한 뒤 위 순서대로 만들거나, 본인 터미널에서 아래 명령을 실행한다.
 
 ```bash
-security add-generic-password -a "$(id -un)" -s agent-model-router-typesafe \
+security add-generic-password -a "$(id -un)" -s jev-decision-kit-typesafe \
   "$HOME/Library/Keychains/login.keychain-db" -w
 ```
 
 `-w`가 마지막 인자이므로 터미널이 암호 입력을 요청한다. iCloud 항목에서 복사한 키를 그 입력창에 직접 붙여넣는다. 입력은 화면에 표시되지 않고 명령줄이나 셸 기록에도 들어가지 않는다. 키 값을 명령에 덧붙이지 않는다. 이 추가 항목은 로컬 로그인 키체인에 저장되며 iCloud 항목은 유지된다. 저장 뒤에는 다음 명령으로 값 조회 없이 존재만 확인할 수 있다.
 
 ```bash
-security find-generic-password -a "$(id -un)" -s agent-model-router-typesafe \
+security find-generic-password -a "$(id -un)" -s jev-decision-kit-typesafe \
   "$HOME/Library/Keychains/login.keychain-db" >/dev/null
 ```
 
@@ -65,7 +65,7 @@ security find-generic-password -a "$(id -un)" -s agent-model-router-typesafe \
   set +x
   unset TYPESAFE_API_KEY JEV_API_KEY
   if ! TYPESAFE_API_KEY="$(/usr/bin/security find-generic-password \
-    -s agent-model-router-typesafe -a "$(id -un)" -w)"; then
+    -s jev-decision-kit-typesafe -a "$(id -un)" -w)"; then
     exit 1
   fi
   [ -n "$TYPESAFE_API_KEY" ] || exit 1
@@ -76,7 +76,7 @@ security find-generic-password -a "$(id -un)" -s agent-model-router-typesafe \
 
 키는 괄호 안의 셸과 자식 프로세스에만 전달되고 블록이 끝나면 셸 환경에서 사라진다. Codex/Claude 앱의 전역 설정이나 로그인 셸 설정은 바뀌지 않는다. 키체인 항목은 이후 사용을 위해 로컬에 남는다.
 
-전송할 프롬프트와 유료 호출 범위를 확인한 뒤에는 위 셸 블록 대신 `evaluate`·`shadow` 명령에 `--keychain-service agent-model-router-typesafe --keychain-account "$(id -un)"`를 지정할 수 있다. 라우터가 키를 메모리에서만 사용하고 Codex CLI 자식 환경에는 전달하지 않는다. 한 터미널에서 설정한 환경 변수는 다른 터미널이나 앱 프로세스에 자동으로 전달되지 않는다. 키 값은 출력하거나 공유하지 않는다.
+전송할 프롬프트와 유료 호출 범위를 확인한 뒤에는 위 셸 블록 대신 `evaluate`·`shadow` 명령에 `--keychain-service jev-decision-kit-typesafe --keychain-account "$(id -un)"`를 지정할 수 있다. 라우터가 키를 메모리에서만 사용하고 Codex CLI 자식 환경에는 전달하지 않는다. 한 터미널에서 설정한 환경 변수는 다른 터미널이나 앱 프로세스에 자동으로 전달되지 않는다. 키 값은 출력하거나 공유하지 않는다.
 
 기존 비밀 관리 도구를 사용하는 경우에도 해당 도구의 프로세스 환경 주입 기능을 사용할 수 있다. `echo`, `printenv`, 셸 추적(`set -x`) 등으로 키를 출력하지 않는다. Jev가 켜진 `shadow`도 실제 TypeSafe 호출을 수행하므로 유료 실행 범위 확인에 포함한다.
 

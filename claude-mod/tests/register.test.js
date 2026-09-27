@@ -107,15 +107,6 @@ test("routes every main-loop step in one turn and records the served model", asy
   assert.equal(h.registered[0].name, "jev-decision-kit-route");
 });
 
-test("legacy environment remains usable and new names can explicitly disable routing", async () => {
-  const legacy = harness({ env: { JEV_KIT_CLAUDE_AUTO: undefined, JAO_CLAUDE_AUTO: "1", JAO_ENV_FILE: "/legacy/.env" } });
-  await legacy.start("legacy-turn", "Implement this small API change.");
-  assert.equal(legacy.requests.length, 1);
-  assert.equal(legacy.registered[0].name, "jev-decision-kit-route");
-  const disabled = harness({ env: { JEV_KIT_CLAUDE_AUTO: "0", JAO_CLAUDE_AUTO: "1" } });
-  await disabled.start("disabled-turn", "Implement this small API change.");
-  assert.equal(disabled.requests.length, 0);
-});
 
 test("skips sensitive prompts and leaves the session model on low confidence", async () => {
   const sensitive = harness();

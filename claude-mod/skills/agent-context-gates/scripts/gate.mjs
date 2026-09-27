@@ -12,7 +12,7 @@ if (!(["search", "memory"].includes(mode) && input && process.argv.length === 4)
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(scriptDir, "../../../..");
-const configuredEnv = process.env.JEV_KIT_ENV_FILE || process.env.JAO_ENV_FILE || process.env.AMR_ENV_FILE;
+const configuredEnv = process.env.JEV_KIT_ENV_FILE;
 const envFile = configuredEnv || join(sourceRoot, ".env");
 const root = configuredEnv ? dirname(resolve(envFile)) : sourceRoot;
 const cli = join(root, "dist/cli.js");

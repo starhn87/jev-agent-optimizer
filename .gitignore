@@ -7,3 +7,5 @@ dist/
 *.jsonl
 .local/
 .claude/types/
+
+packages/cli/claude-mod/

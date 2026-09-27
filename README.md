@@ -1,104 +1,93 @@
 # Jev Decision Kit
 
-Jev의 작은 의미 판단을 검증 가능한 결과로 반환하고 평가하는 TypeScript 도구입니다. 질문·업무 정책·임계값·운영 데이터는 사용하는 애플리케이션이 소유합니다.
+Jev를 프로젝트와 에이전트 도구에 연결하는 실행 도구입니다. API 키 설정, 판단 실행, 결과 평가, Codex·Claude 연결을 하나의 `jev-decision-kit` 명령으로 처리합니다. 애플리케이션 코드에 붙일 수 있는 판단·평가 라이브러리도 함께 제공합니다.
 
-## 애플리케이션에 설치하기
+## 바로 실행하기
 
-Node.js 22 이상과 npm이 필요합니다. 현재는 GitHub 릴리스에 있는 npm 패키지를 바로 설치합니다. npm registry 게시는 아직 하지 않았습니다.
-
-```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-decisions-0.1.1.tgz
-```
-
-Workers, Deno, Node에서 같은 ESM을 사용합니다. 공식 TypeSafe SDK가 번들에 포함되어 별도 런타임 의존성을 설치할 필요가 없습니다.
-
-아래를 `decision.mjs`로 저장하세요. TypeScript에서도 같은 import를 사용하며 질문의 선택지 타입이 추론됩니다.
-
-```js
-import { createDecisionClient } from '@starhn87/jev-decisions';
-
-const client = createDecisionClient({
-  apiKey: process.env.TYPESAFE_API_KEY ?? '',
-  model: 'jev-1.13.0',
-});
-const result = await client.decide({
-  definitionId: 'support-scope', definitionVersion: '1',
-  state: { message: '계정 설정을 변경하고 싶어요' },
-  questions: { scope: { type: 'choice', criteria: {
-    relevant: '계정 지원과 관련된 요청',
-    unrelated: '계정 지원과 무관한 요청',
-    uncertain: '문맥이 부족해 판단할 수 없음',
-  } } },
-}, { timeoutMs: 1200 });
-
-if (result.ok) console.log(result.answers.scope.choice, result.meta.durationMs);
-else console.log(result.error.kind);
-```
-
-프로젝트의 `.env`에 `TYPESAFE_API_KEY=발급받은_키`를 넣고 실행합니다.
+Node.js 22 이상과 npm이 필요합니다. 아래 세 명령을 순서대로 실행하세요.
 
 ```sh
-node --env-file=.env decision.mjs
+npm install -g https://github.com/starhn87/jev-decision-kit/releases/latest/download/jev-decision-kit.tgz
+jev-decision-kit init
+jev-decision-kit demo
 ```
 
-Workers에서는 키를 서버 binding으로 전달합니다. Deno는 [런타임별 예제](packages/decisions/README.md#deno)의 설치한 ESM을 import할 수 있습니다. 패키지 버전과 lockfile을 함께 고정하고, `.env`는 Git에서 제외하세요.
+`init`이 TypeSafe API 키를 입력받아 저장합니다. 입력한 키는 화면에 표시하지 않고 사용자 폴더 `~/.jev-decision-kit/.env`에 저장합니다. `demo`는 준비된 질문을 Jev에 보내고 판단 결과와 처리 시간을 보여줍니다. 예제 파일을 만들거나 코드를 작성할 필요가 없습니다.
 
-## 판단과 평가
-
-- Choice·Score·Noul 응답을 질문별 타입과 런타임 검증으로 확인합니다.
-- 전체 deadline, 요청 취소, HTTP·전송·응답 오류를 구분합니다. 기본 deadline은 1200ms이고 재시도는 없습니다.
-- 질문·모델 버전, 지연·토큰 사용량을 반환합니다. 누락된 사용량은 `null`로 유지합니다.
-- 키·원문을 자동 기록하거나 도메인 동작·설정 변경을 실행하지 않습니다.
-
-별도 Node 평가 도구는 실패·보류·정답 라벨이 없는 사례까지 집계합니다.
+키 없이 명령이 동작하는지 먼저 확인하려면:
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-eval-0.1.1.tgz
-npx jev-eval observations.jsonl
+jev-decision-kit demo --offline
+jev-decision-kit eval --demo
 ```
 
-[평가 API와 소비 저장소의 주간 이슈 작성](packages/eval/README.md). 관측 분포와 확신은 의미 정확도를 입증하지 않으며, 실제 적용 전 업무별 평가셋과 정책을 검증해야 합니다.
+`--offline`은 모의 응답을 사용하고, `eval --demo`는 준비된 관측 결과를 집계합니다. 둘 다 외부 API를 호출하지 않습니다.
 
-## Codex·Claude 에이전트 도구 실행하기
-
-macOS, Node.js 22 이상, Codex 또는 Claude Code와 TypeSafe API 키가 필요합니다.
+## 내 문장 판단하기
 
 ```sh
-git clone https://github.com/starhn87/jev-decision-kit.git
-cd jev-decision-kit
-npm ci
-cp -n .env.example .env
-open -e .env
+jev-decision-kit decide --text "계정 설정을 변경하고 싶어요" --question "고객 지원 문의인가?" --choices "예,아니오,판단보류"
 ```
 
-`.env`에 `TYPESAFE_API_KEY`를 입력한 뒤:
+질문과 선택지를 명령에 전달하면 결과를 바로 보여줍니다. 다른 프로그램에서 결과를 읽으려면 끝에 `--json`을 붙이세요. 정의해 둔 여러 질문은 `jev-decision-kit run questions.json`, 수집한 관측 결과는 `jev-decision-kit eval observations.jsonl`로 처리할 수 있습니다.
+
+상태 확인과 전체 명령 안내:
 
 ```sh
-npm run setup
-npm run doctor
+jev-decision-kit doctor
+jev-decision-kit --help
 ```
 
-Codex 앱은 재시작 후 새 작업에서 `Jev Auto`를 선택하고, Claude Code는 새 세션을 시작하세요. 한 앱만 연결하려면 `npm run setup -- codex` 또는 `npm run setup -- claude`, 제거하려면 `npm run disable`을 사용합니다. [업데이트·제거와 상세 사용법](apps/agent-optimizer/README.md).
+## Codex·Claude 연결하기
 
-## 저장소 구성
+키 설정 후 사용할 앱을 지정하세요. 연결할 앱이 설치되어 있어야 하며 Codex의 백그라운드 자동 연결은 macOS를 지원합니다.
 
-- `packages/decisions`: Web API 기반 공통 판단 패키지.
-- `packages/eval`: Node 평가·보고 도구. 게시할 이슈 저장소는 호출자가 지정합니다.
-- `apps/agent-optimizer`: 모델·effort 라우팅과 검색·기억 선별을 사용하는 Codex/Claude 도구.
+```sh
+jev-decision-kit agent install codex
+jev-decision-kit agent install claude
+jev-decision-kit agent doctor
+```
 
-라이브러리 설치로 데스크톱 설정이나 프록시를 변경하지 않습니다. 에이전트 CLI 명령은 `jev-decision-kit`, Claude 플러그인 ID는 `jev-decision-kit@jev-decision-kit`입니다. `npm run setup`으로 기존 로컬 설치를 새 이름으로 이전할 수 있습니다.
+두 앱을 함께 연결하려면 `jev-decision-kit agent install`을 실행합니다. Codex 앱은 재시작 후 새 작업에서 `Jev Auto`를 선택하고, Claude Code는 새 세션에서 `/jev-decision-kit-route`로 확인합니다. 연결을 해제하려면 `jev-decision-kit agent uninstall`을 사용하세요.
 
-## 개발과 배포
+이 연결은 모델·추론 수준 선택과 검색·기억 후보 선별을 제공합니다. [에이전트 도구의 동작과 상세 설정](apps/agent-tools/README.md).
 
-저장소를 clone한 뒤 루트에서 실행합니다.
+## 업데이트와 제거
+
+업데이트는 처음의 `npm install -g` 명령을 다시 실행하면 됩니다. 키와 에이전트 실행 파일은 사용자 폴더에 있어 CLI 패키지를 갱신해도 유지됩니다.
+
+```sh
+jev-decision-kit agent uninstall
+npm uninstall -g @starhn87/jev-decision-kit
+```
+
+첫 명령은 에이전트 연결을, 둘째 명령은 CLI를 제거합니다. 저장한 키 파일은 보존합니다.
+
+## 애플리케이션 코드에서 사용하기
+
+터미널 명령 대신 서버 코드에서 직접 호출하려면 [판단 라이브러리](packages/decisions/README.md)를, 관측 데이터 평가와 보고 기능은 [평가 라이브러리](packages/eval/README.md)를 사용하세요. 질문, 적용 기준, 저장할 데이터는 각 프로젝트에서 정의합니다. 라이브러리 설치만으로 데스크톱 앱 설정을 바꾸지는 않습니다.
+
+## Deno와 ESM은 무엇인가요?
+
+- **Node.js**는 JavaScript를 실행하는 프로그램입니다. 위 CLI를 실행할 때 사용합니다.
+- **Deno**도 JavaScript·TypeScript를 실행하는 프로그램입니다. 일부 서버는 Node.js 대신 Deno를 사용하므로, 판단 라이브러리가 그 환경에서도 동작하는지 검사합니다. CLI 사용자는 Deno를 설치할 필요가 없습니다. [Deno 공식 설명](https://docs.deno.com/runtime/).
+- **ESM**은 코드 파일을 나누고 필요한 기능을 `import`로 가져오는 JavaScript 표준 방식입니다. 우리 라이브러리가 다른 서버 코드에 붙을 때 사용하는 형식이며, 별도 프로그램이나 설치 단계가 아닙니다. [JavaScript 모듈 설명](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules).
+
+## 개발자용 저장소 구성
+
+- `packages/cli`: 설치·실행 명령과 준비된 예제.
+- `packages/decisions`: 질문 실행과 응답 검증을 제공하는 라이브러리.
+- `packages/eval`: 관측 결과 평가와 보고 라이브러리.
+- `apps/agent-tools`: Codex·Claude 연결과 모델·검색·기억 선택 기능.
+
+저장소 개발 시에는 루트에서 다음을 실행합니다.
 
 ```sh
 npm ci
 npm run check
 npm test
 npm run test:compat
-npm run pack:decisions
-npm run pack:eval
+npm run pack:cli
 ```
 
-실제 npm tarball을 독립 프로젝트에 설치해 import·타입·CLI를 검사하고, 같은 산출물을 Workers·Deno에서 검증합니다. [릴리스 절차](docs/releases.md).
+실제 배포 패키지를 빈 프로젝트에 설치해 CLI·타입·런타임 호환성을 확인합니다. [릴리스 절차](docs/releases.md). 현재 npm 명령은 GitHub 릴리스 파일을 설치하며 npm registry 등록은 아직 하지 않았습니다.

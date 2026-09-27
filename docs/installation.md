@@ -1,16 +1,15 @@
 # 고급 설치와 문제 해결
 
-일반적인 macOS 설치는 [에이전트 도구 README](../apps/agent-optimizer/README.md)의 `npm run setup`을 사용하세요. 아래는 수동 설정이나 팀용 마켓플레이스가 필요한 경우의 안내입니다.
+일반적인 설치는 [에이전트 도구 README](../apps/agent-tools/README.md)의 `jev-decision-kit agent install`을 사용하세요. 아래는 수동 설정이나 팀용 마켓플레이스가 필요한 경우의 안내입니다.
 
 ## 설치 도구가 변경하는 범위
 
-`npm run setup -- codex`는 `.codex/config.toml`의 최상위 모델·공급자와 `model_providers.agent_router` 테이블을 설정하고, macOS 사용자 LaunchAgent를 등록합니다. `~/.agents/skills/agent-context-gates`에 검색·기억 스킬을 연결합니다. 서버가 정상 응답하는지 확인한 후 Codex의 공급자를 바꿉니다. 설치 도중 실패하면 이전 파일을 복원합니다. `~/.jev-decision-kit/backups/`에 설정 백업을 남깁니다.
+`jev-decision-kit agent install codex`는 `.codex/config.toml`의 최상위 모델·공급자와 `model_providers.jev_decision_kit` 테이블을 설정하고, macOS 사용자 LaunchAgent를 등록합니다. `~/.agents/skills/agent-context-gates`에 검색·기억 스킬을 연결합니다. 서버가 정상 응답하는지 확인한 후 Codex의 공급자를 바꿉니다. 설치 도중 실패하면 이전 파일을 복원합니다. `~/.jev-decision-kit/backups/`에 설정 백업을 남깁니다.
 
-`npm run setup -- claude`는 사용자 skills 폴더에 로컬 플러그인과 검색·기억 스킬을 연결하고 `.claude/settings.json`의 네 개 환경변수를 설정합니다. 기존 다른 설정을 보존합니다. 마켓플레이스의 동일 플러그인이 활성화되어 있으면 중복 설치를 거절합니다.
+`jev-decision-kit agent install claude`는 사용자 skills 폴더에 로컬 플러그인과 검색·기억 스킬을 연결하고 `.claude/settings.json`의 네 개 환경변수를 설정합니다. 기존 다른 설정을 보존합니다. 마켓플레이스의 동일 플러그인이 활성화되어 있으면 중복 설치를 거절합니다.
 
-기존 로컬 설치를 다시 설정하면 관리하던 `JAO_*`·`AMR_*` 값은 `JEV_KIT_*`로 바꾸고 설치 기록을 `~/.jev-agent-optimizer/install.json` 또는 `~/.agent-model-router/install.json`에서 `~/.jev-decision-kit/install.json`로 이전합니다. 기존 로컬 플러그인 링크도 `jev-decision-kit`으로 이전하며, 이전 이름의 별도 플러그인을 중복 등록하지 않습니다. 기존 기록은 백업한 뒤 제거합니다. 새 설치의 백업은 `~/.jev-decision-kit/backups/`에 저장합니다.
 
-설치 도구는 기본 사용자 경로 `~/.codex`, `~/.claude`를 대상으로 합니다. 사용자 지정 `CODEX_HOME`·`CLAUDE_CONFIG_DIR` 또는 조직 관리 설정에서는 아래 수동 구성을 사용하세요. 기존 관련 없는 `agent_router` 공급자, 다른 플러그인 폴더, 복잡한 TOML 형식은 자동으로 덮어쓰지 않습니다.
+설치 도구는 기본 사용자 경로 `~/.codex`, `~/.claude`를 대상으로 합니다. 사용자 지정 `CODEX_HOME`·`CLAUDE_CONFIG_DIR` 또는 조직 관리 설정에서는 아래 수동 구성을 사용하세요. 기존 관련 없는 `jev_decision_kit` 공급자, 다른 플러그인 폴더, 복잡한 TOML 형식은 자동으로 덮어쓰지 않습니다.
 
 ## Codex 수동 실행
 
@@ -28,9 +27,9 @@ node --env-file=.env dist/cli.js serve --mode auto --baseline-model gpt-6-astra 
 
 ```toml
 model = "gpt-6-astra"
-model_provider = "agent_router"
+model_provider = "jev_decision_kit"
 
-[model_providers.agent_router]
+[model_providers.jev_decision_kit]
 name = "Jev Decision Kit"
 base_url = "http://127.0.0.1:8765"
 wire_api = "responses"
@@ -59,9 +58,8 @@ claude plugin marketplace add starhn87/jev-decision-kit
 claude plugin install jev-decision-kit@jev-decision-kit
 ```
 
-이전 마켓플레이스 ID로 설치했다면 먼저 `claude plugin uninstall jev-agent-optimizer@jev-agent-optimizer`와 `claude plugin marketplace remove jev-agent-optimizer`를 실행한 뒤 위 명령으로 새 ID를 설치하세요.
 
-게시 전 로컬 목록을 검사하려면 저장소 루트에서 `claude plugin validate .`를 실행하세요. 로컬 목록 자체를 설치하려면 `claude plugin marketplace add .` 이후 같은 `plugin install` 명령을 사용할 수 있습니다. **로컬 연결 방식으로 이미 설치했다면 `npm run disable -- claude`로 먼저 해제**하세요.
+게시 전 로컬 목록을 검사하려면 저장소 루트에서 `claude plugin validate .`를 실행하세요. 로컬 목록 자체를 설치하려면 `claude plugin marketplace add .` 이후 같은 `plugin install` 명령을 사용할 수 있습니다. **로컬 연결 방식으로 이미 설치했다면 `jev-decision-kit agent uninstall claude`로 먼저 해제**하세요.
 
 마켓플레이스 플러그인에는 `agent-context-gates` 스킬도 포함됩니다. 스킬의 명령은 이 저장소에서 빌드한 CLI를 사용하며, `JEV_KIT_ENV_FILE`을 저장소의 `.env` 절대 경로로 설정해야 합니다. 스킬은 에이전트에게 필터 호출을 안내하지만 내장 검색·기억 도구를 가로채지는 않습니다.
 
@@ -80,7 +78,7 @@ claude plugin install jev-decision-kit@jev-decision-kit
 
 새 CLI 또는 데스크톱 Code 탭 세션을 시작하세요. `/jev-decision-kit-route`가 등록되고 새 요청 뒤 판정·API 모델이 나오면 적용된 것입니다. `JEV_KIT_CLAUDE_AUTO=0`은 자동 라우팅 해제, `JEV_KIT_RESPONSE_FOOTER=0`은 요약 표시만 해제합니다.
 
-마켓플레이스로 설치한 플러그인은 `claude plugin uninstall jev-decision-kit@jev-decision-kit`로 제거하세요. `npm run disable`은 로컬 연결 방식만 관리합니다.
+마켓플레이스로 설치한 플러그인은 `claude plugin uninstall jev-decision-kit@jev-decision-kit`로 제거하세요. `jev-decision-kit agent uninstall`은 로컬 연결 방식만 관리합니다.
 
 공식 문서: [마켓플레이스](https://code.claude.com/docs/en/plugin-marketplaces), [초기 접근 함수 훅과 타입](https://github.com/anthropics/claude-code/tree/main/mods). 함수 훅 활성화가 허용되지 않는 버전이나 조직 환경에서는 이 라우터가 동작하지 않습니다.
 
@@ -90,8 +88,8 @@ claude plugin install jev-decision-kit@jev-decision-kit
 
 ## 확인 순서
 
-1. `npm run doctor`로 키 설정 유무·플러그인 연결·공급자·서버 응답을 확인합니다. 키 값은 출력하지 않습니다.
+1. `jev-decision-kit agent doctor`로 키 설정 유무·플러그인 연결·공급자·서버 응답을 확인합니다. 키 값은 출력하지 않습니다.
 2. Codex는 새 작업에서 Jev Auto를 선택합니다. 예전 작업의 모델 선택만 바꿔서는 공급자가 변경되지 않을 수 있습니다.
 3. Claude는 새 Code 세션에서 `/jev-decision-kit-route`를 확인합니다. 일반 Chat 탭과 세션 모델 배지는 턴별 라우팅 확인 수단이 아닙니다.
-4. Codex 서버가 구버전이면 `npm run setup -- codex`로 재시작합니다. 재시작 중에는 실행 중인 라우터 요청이 끊길 수 있으므로 작업이 끝난 뒤 실행하세요.
+4. Codex 서버가 구버전이면 `jev-decision-kit agent install codex`로 재시작합니다. 재시작 중에는 실행 중인 라우터 요청이 끊길 수 있으므로 작업이 끝난 뒤 실행하세요.
 5. 필요한 경우에만 [상태 화면](http://127.0.0.1:8765/status)과 `.local/router.stderr.log`를 확인합니다. 서버 로그나 키가 포함된 전체 설정을 공개하지 마세요.

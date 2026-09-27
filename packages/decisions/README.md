@@ -10,7 +10,9 @@ This installs the packaged GitHub release through npm. npm registry publication 
 
 ## Node / TypeScript
 
-Save as `decision.mjs` (or use this in your TypeScript project):
+This section is for embedding the library in application code. For a terminal quick start, use the [CLI](https://github.com/starhn87/jev-decision-kit#readme).
+
+Use this inside your existing JavaScript or TypeScript server code:
 
 ```js
 import { createDecisionClient } from '@starhn87/jev-decisions';
@@ -32,11 +34,7 @@ if (result.ok) {
 } else console.log(result.error.kind);
 ```
 
-Put `TYPESAFE_API_KEY=your_key` in a Git-ignored `.env`, then run:
-
-```sh
-node --env-file=.env decision.mjs
-```
+Pass the server-side API key from your application configuration.
 
 ## Cloudflare Workers
 
@@ -65,7 +63,7 @@ import { createDecisionClient } from './node_modules/@starhn87/jev-decisions/dis
 const client = createDecisionClient({ apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', model: 'jev-1.13.0' });
 ```
 
-Run the npm install command above in the same project first. Deno imports the installed ESM and its adjacent TypeScript declaration from the local filesystem; it does not resolve an unpublished npm registry package. Save your caller as `decision.ts` and run it with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
+Run the npm install command above in the same project first. Deno imports the installed ESM and its adjacent TypeScript declaration from the local filesystem; it does not resolve an unpublished npm registry package. Run your application with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
 
 ## Contract
 

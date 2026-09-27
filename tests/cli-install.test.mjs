@@ -1,0 +1,82 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync, spawnSync, spawn } from 'node:child_process';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync, statSync, chmodSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createServer } from 'node:http';
+
+test('packaged CLI installs alone and runs init, examples, decisions and evaluation without user-written scripts', async () => {
+  const root = process.cwd(), dir = mkdtempSync(join(tmpdir(), 'jev-cli-install-'));
+  const home = join(dir, 'home'); mkdirSync(home);
+  const env = { ...process.env, HOME: home }; delete env.TYPESAFE_API_KEY; delete env.JEV_KIT_MODEL;
+  delete env.CODEX_HOME; delete env.CLAUDE_CONFIG_DIR;
+  const server = createServer((req, res) => {
+    let body = ''; req.on('data', part => { body += part; });
+    req.on('end', () => {
+      const payload = JSON.parse(body);
+      assert.equal(req.headers.authorization, 'Bearer synthetic-key');
+      assert.equal(payload.state.message, 'hello');
+      assert.deepEqual(Object.keys(payload.questions.decision.criteria), ['yes', 'no']);
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ model: 'jev-1.13.0', answers: { decision: { type: 'choice', choice: 'yes', confidence: 0.9, probabilities: { yes: 0.9, no: 0.1 } } } }));
+    });
+  });
+  try {
+    const [pack] = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--workspace', '@starhn87/jev-decision-kit', '--json', '--pack-destination', dir], { encoding: 'utf8' }));
+    assert.ok(pack.files.every(file => !/(^|\/)(?:\.env|\.local|tests|src)(?:\/|$)/.test(file.path)));
+    assert.ok(pack.files.some(file => file.path === 'dist/agent-cli.mjs'));
+    writeFileSync(join(dir, 'package.json'), '{"private":true}');
+    execFileSync('npm', ['install', '--no-audit', '--no-fund', join(dir, pack.filename)], { cwd: dir, stdio: 'pipe' });
+    const cli = join(dir, 'node_modules/.bin/jev-decision-kit');
+    const run = (args, input) => spawnSync(cli, args, { cwd: dir, env, input, encoding: 'utf8' });
+    let result = run(['demo']);
+    assert.equal(result.status, 1); assert.match(result.stderr, /init/);
+    result = run(['demo', '--offline']);
+    assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /모의 실행/);
+    assert.equal(existsSync(join(home, '.jev-decision-kit/.env')), false);
+    result = run(['agent', '--help']);
+    assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /jev-decision-kit agent search-report/);
+    assert.equal(existsSync(join(home, '.jev-decision-kit/agent')), false);
+    result = run(['agent', 'install', 'claude']);
+    assert.equal(result.status, 1); assert.match(result.stderr, /init/);
+    assert.equal(existsSync(join(home, '.jev-decision-kit/agent')), false);
+    result = run(['agent', 'uninstall']); assert.equal(result.status, 0, result.stderr);
+    result = run(['init', '--stdin'], 'synthetic-key\n');
+    assert.equal(result.status, 0, result.stderr); assert.ok(!result.stdout.includes('synthetic-key'));
+    const secret = join(home, '.jev-decision-kit/.env');
+    assert.equal(statSync(secret).mode & 0o777, 0o600);
+    assert.match(readFileSync(secret, 'utf8'), /synthetic-key/);
+    result = run(['doctor']); assert.equal(result.status, 0); assert.match(result.stdout, /설정됨/); assert.ok(!result.stdout.includes('synthetic-key'));
+    result = run(['eval', '--demo']); assert.equal(JSON.parse(result.stdout).total, 1);
+    result = run(['agent', 'doctor']); assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /연결 없음/);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const output = await new Promise((resolve, reject) => {
+      const child = spawn(cli, ['decide', '--text', 'hello', '--question', 'Is this relevant?', '--choices', 'yes,no', '--json', '--base-url', `http://127.0.0.1:${server.address().port}`], { cwd: dir, env });
+      let stdout = '', stderr = ''; child.stdout.on('data', part => { stdout += part; }); child.stderr.on('data', part => { stderr += part; });
+      child.on('error', reject); child.on('close', code => code === 0 ? resolve(stdout) : reject(new Error(stderr)));
+    });
+    assert.equal(JSON.parse(output).answers.decision.choice, 'yes');
+    assert.equal(existsSync(join(home, '.codex/config.toml')), false);
+    assert.equal(existsSync(join(home, '.claude/settings.json')), false);
+    const bin = join(dir, 'bin'); mkdirSync(bin);
+    const mockClaude = join(bin, 'claude');
+    writeFileSync(mockClaude, '#!/bin/sh\n[ "$1" = plugin ] && [ "$2" = validate ] && [ -f "$4/.claude-plugin/plugin.json" ]\n');
+    chmodSync(mockClaude, 0o755); env.PATH = `${bin}:${env.PATH}`;
+    mkdirSync(join(home, '.claude'));
+    const settings = join(home, '.claude/settings.json');
+    writeFileSync(settings, JSON.stringify({ env: { KEEP: 'value' }, permissions: { allow: ['Read'] } }));
+    result = run(['agent', 'install', 'claude']); assert.equal(result.status, 0, result.stderr);
+    const installed = JSON.parse(readFileSync(settings, 'utf8'));
+    assert.equal(installed.env.JEV_KIT_CLAUDE_AUTO, '1');
+    assert.equal(installed.env.KEEP, 'value');
+    assert.deepEqual(installed.permissions, { allow: ['Read'] });
+    const runtime = join(home, '.jev-decision-kit/agent');
+    assert.match(readFileSync(join(runtime, '.env'), 'utf8'), /synthetic-key/);
+    assert.ok(!result.stdout.includes('synthetic-key'));
+    assert.equal(statSync(join(runtime, '.env')).mode & 0o777, 0o600);
+    result = run(['agent', 'uninstall', 'claude']); assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { env: { KEEP: 'value' }, permissions: { allow: ['Read'] } });
+    result = run(['agent', 'uninstall']); assert.equal(result.status, 0, result.stderr);
+  } finally { await new Promise(resolve => server.close(resolve)); rmSync(dir, { recursive: true, force: true }); }
+});

@@ -64,10 +64,7 @@ export function choiceFromJev(body) {
 }
 
 async function kitEnv($, name) {
-  for (const prefix of ["JEV_KIT_", "JAO_", "AMR_"]) {
-    const value = await $.env.get(prefix + name);
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
+  return $.env.get("JEV_KIT_" + name);
 }
 
 async function envFile($) {

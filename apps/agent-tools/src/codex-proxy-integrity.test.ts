@@ -81,7 +81,7 @@ test("invalid response JSON is rejected before contacting upstream", async (cont
   const proxy = await harness(context, (_request, response) => { calls += 1; response.end(); });
   const response = await fetch(`${proxy.url}/responses`, { method: "POST", signal: proxy.signal, body: '{"secret":"test"' });
   assert.equal(response.status, 400);
-  assert.deepEqual(await response.json(), { error: { type: "agent_router_error", message: "invalid response request" } });
+  assert.deepEqual(await response.json(), { error: { type: "jev_decision_kit_error", message: "invalid response request" } });
   assert.equal(calls, 0);
 });
 
@@ -113,7 +113,7 @@ test("interrupted model catalog returns a sanitized 502 instead of hanging", { t
   });
   const response = await fetch(`${proxy.url}/models`, { signal: AbortSignal.any([proxy.signal, AbortSignal.timeout(700)]) });
   assert.equal(response.status, 502);
-  assert.deepEqual(await response.json(), { error: { type: "agent_router_error", message: "upstream unavailable" } });
+  assert.deepEqual(await response.json(), { error: { type: "jev_decision_kit_error", message: "upstream unavailable" } });
 });
 
 test("downstream cancellation closes the active upstream response", { timeout: 3000 }, async (context) => {

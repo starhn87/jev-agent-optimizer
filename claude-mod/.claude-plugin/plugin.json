@@ -1,6 +1,8 @@
 {
   "name": "jev-decision-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Model and effort routing plus search and memory selection with TypeSafe Jev",
-  "author": { "name": "Jev Decision Kit contributors" }
+  "author": {
+    "name": "Jev Decision Kit contributors"
+  }
 }
