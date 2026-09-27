@@ -8,8 +8,8 @@ Codex와 Claude Code에서 모델·effort를 자동 선택하고, 검색·기억
 필요 항목: macOS, Node.js 22 이상, Codex 또는 Claude Code, TypeSafe API 키.
 
 ```bash
-git clone https://github.com/starhn87/jev-agent-optimizer.git
-cd jev-agent-optimizer
+git clone https://github.com/starhn87/jev-decision-kit.git
+cd jev-decision-kit
 npm ci
 cp -n .env.example .env
 open -e .env
@@ -23,6 +23,8 @@ npm run doctor
 ```
 
 CLI 명령을 직접 쓰려면 `npm link` 후 `jao doctor`를 실행하세요.
+
+이 도구는 저장소 루트에서 빌드·설치합니다. 공개 `@starhn87/jev-decisions`를 설치하는 것만으로 에이전트 설정·LaunchAgent·플러그인이 등록되지는 않습니다. 저장소 이름과 독립적으로 `jao`, `JAO_*`, 플러그인·마켓플레이스 ID `jev-agent-optimizer`, 기존 provider·LaunchAgent 식별자를 유지합니다. 기존 checkout은 URL만 갱신해도 됩니다. 로컬 경로를 옮길 때는 이전 경로에 새 경로를 가리키는 symlink를 유지하고 `npm run setup`을 다시 실행하면 관리 경로를 갱신합니다. 다른 checkout의 설치를 자동으로 인수하지 않습니다.
 
 사용량 요약:
 

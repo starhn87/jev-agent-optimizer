@@ -1,6 +1,6 @@
 # 고급 설치와 문제 해결
 
-일반적인 macOS 설치는 [README](../README.md)의 `npm run setup`을 사용하세요. 아래는 수동 설정이나 팀용 마켓플레이스가 필요한 경우의 안내입니다.
+일반적인 macOS 설치는 [에이전트 도구 README](../apps/agent-optimizer/README.md)의 `npm run setup`을 사용하세요. 아래는 수동 설정이나 팀용 마켓플레이스가 필요한 경우의 안내입니다.
 
 ## 설치 도구가 변경하는 범위
 
@@ -55,7 +55,7 @@ node --env-file=.env dist/cli.js codex --mode auto --baseline-model gpt-6-astra 
 새로운 설치를 마켓플레이스 방식으로 진행한다면:
 
 ```bash
-claude plugin marketplace add starhn87/jev-agent-optimizer
+claude plugin marketplace add starhn87/jev-decision-kit
 claude plugin install jev-agent-optimizer@jev-agent-optimizer
 ```
 

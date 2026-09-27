@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
@@ -94,6 +94,20 @@ test("legacy install state and Claude env move to the new names", async (t) => {
   assert.equal(env.AMR_CLAUDE_AUTO, undefined);
   uninstall("claude", h.context);
   assert.deepEqual(JSON.parse(h.get(".claude/settings.json")).env, { OTHER: "preserved" });
+});
+
+test("renamed checkouts update managed paths and remain removable through their old alias", async (t) => {
+  const h = fixture(t);
+  await install("claude", h.context);
+  const original = h.context.repo, renamed = `${original}-renamed`;
+  renameSync(original, renamed); symlinkSync(renamed, original, "dir");
+  h.context.repo = renamed;
+  await install("claude", h.context);
+  assert.equal(JSON.parse(h.get(".jev-agent-optimizer/install.json")).repo, renamed);
+  assert.equal(JSON.parse(h.get(".claude/settings.json")).env.JAO_ENV_FILE, join(renamed, ".env"));
+  assert.match(await doctor(h.context), /플러그인 로컬 연결됨/);
+  uninstall("claude", { ...h.context, repo: original });
+  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-agent-optimizer")), false);
 });
 
 test("conflicting old and new install records stop migration before changes", async (t) => {

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,8 +19,11 @@ const LEGACY_PROVIDER = PROVIDER.replace('name = "Jev Agent Optimizer"', 'name =
 const ROOT_SETTINGS = 'model = "gpt-6-astra"\nmodel_provider = "agent_router"\n';
 const read = (path: string): string | null => existsSync(path) ? readFileSync(path, "utf8") : null;
 const present = (path: string): boolean => { try { lstatSync(path); return true; } catch { return false; } };
+const sameLocation = (a: string, b: string): boolean => {
+  try { return realpathSync(a) === realpathSync(b); } catch { return resolve(a) === resolve(b); }
+};
 const sameLink = (path: string, target: string): boolean => {
-  try { return lstatSync(path).isSymbolicLink() && resolve(dirname(path), readlinkSync(path)) === target; } catch { return false; }
+  try { return lstatSync(path).isSymbolicLink() && sameLocation(resolve(dirname(path), readlinkSync(path)), target); } catch { return false; }
 };
 function write(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -132,7 +135,7 @@ function stateOf(context: InstallContext): InstallState {
   const text = current ?? legacy;
   if (!text) return { version: 1, repo: context.repo };
   const state = JSON.parse(text) as InstallState;
-  if (state.version !== 1 || state.repo !== context.repo) throw new Error("다른 경로에서 설치된 라우터가 있습니다. 기존 경로에서 먼저 해제하세요.");
+  if (state.version !== 1 || typeof state.repo !== "string" || !sameLocation(state.repo, context.repo)) throw new Error("다른 경로에서 설치된 라우터가 있습니다. 기존 경로에서 먼저 해제하세요.");
   return state;
 }
 function selected(client: Client, name: "codex" | "claude"): boolean { return client === name || client === "both"; }
@@ -188,7 +191,7 @@ export async function install(client: Client, context: InstallContext): Promise<
   const beforeCodex = read(p.codex); const beforeClaude = read(p.claude); const beforeService = read(p.service);
   const updatedCodex = codex ? configureCodex(beforeCodex ?? "") : null;
   const updatedClaude = claude ? configureClaude(beforeClaude, context.repo) : null;
-  if (codex && beforeService && !beforeService.includes(xml(join(context.repo, "dist/cli.js")))) {
+  if (codex && beforeService && ![context.repo, state.repo].some(repo => beforeService.includes(xml(join(repo, "dist/cli.js"))))) {
     throw new Error("다른 저장소를 실행하는 라우터 서비스가 있습니다. 기존 설치를 먼저 해제하세요.");
   }
   // Check the port before any mutation; a stopped legacy service is allowed.
@@ -247,6 +250,7 @@ export async function install(client: Client, context: InstallContext): Promise<
       state.claude.skillLinkExisted ??= hadClaudeSkill;
       if (hadLegacyLink && !migrateOwnedLink) rmSync(p.legacyLink);
     }
+    state.repo = context.repo;
     write(p.state, json(state));
     if (present(p.legacyState)) rmSync(p.legacyState);
   } catch (error) {
@@ -279,8 +283,8 @@ export function uninstall(client: Client, context: InstallContext): string {
   const claude = selected(client, "claude") && state.claude;
   // Preflight all conflicts before removing anything.
   const nextCodex = codex ? unconfigureCodex(read(p.codex) ?? "", codex.config) : null;
-  const nextClaude = claude ? unconfigureClaude(read(p.claude) ?? "{}", claude.config, context.repo) : null;
-  if (codex && read(p.service) !== servicePlist(context)) throw new Error("라우터 서비스 파일이 변경되어 자동 해제를 중단했습니다.");
+  const nextClaude = claude ? unconfigureClaude(read(p.claude) ?? "{}", claude.config, state.repo) : null;
+  if (codex && read(p.service) !== servicePlist({ ...context, repo: state.repo })) throw new Error("라우터 서비스 파일이 변경되어 자동 해제를 중단했습니다.");
   if (claude && !sameLink(p.link, p.target) && !sameLink(p.legacyLink, p.target))
     throw new Error("Claude 플러그인 연결이 변경되어 자동 해제를 중단했습니다.");
   if (codex && codex.skillLinkExisted === false && !sameLink(p.codexSkill, p.gateTarget)) throw new Error("Codex 검색·기억 스킬 연결이 변경됐습니다.");
