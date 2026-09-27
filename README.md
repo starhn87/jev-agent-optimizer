@@ -90,7 +90,7 @@ cd jev-utils
 npm run connect -- ../my-app
 ```
 
-`connect`는 대상 프로젝트에 다음 세 패키지와 두 프로젝트 스킬 파일을 설치합니다.
+`connect`는 대상 프로젝트에 다음 세 패키지와 **TypeSafe 공식 스킬·Jev Utils 보조 스킬**을 연결합니다.
 
 | 설치 항목 | 설치 위치 | 용도 |
 | --- | --- | --- |
@@ -108,16 +108,21 @@ pnpm·yarn·Deno는 해당 실행 환경에 맞게 수동 설치합니다. [설�
 
 ### 프로젝트 스킬에는 무엇이 들어가나요?
 
-프로젝트 스킬은 **Codex·Claude Code에 Jev Utils의 사용법을 알려주는 설명서**입니다. “Jev로 이 샘플을 시험해줘” 같은 작업을 할 때 어떤 명령을 실행하고 결과를 어떻게 확인할지 알려줍니다. 이 설명서를 작업하는 저장소 안에 보관하므로 프로젝트 스킬이라고 부릅니다.
+프로젝트 스킬은 **Codex·Claude Code가 작업 중 읽는 설명서**입니다. `connect`는 다음 두 종류를 함께 연결합니다.
 
-`connect`는 이 저장소의 [`jev-utils` 설명서](skills/jev-utils/SKILL.md)를 두 위치에 같은 내용으로 복사합니다.
+- **TypeSafe 공식 `typesafe-ai`**: Jev 적용 지점 탐색, 질문·평가 설계와 공식 SDK 사용법을 안내합니다.
+- **Jev Utils `jev-utils`**: 프로젝트의 CLI로 실제 질문을 실행하고 검증·관측 결과를 확인하거나 기존 평가 기록을 집계하는 방법을 안내합니다.
 
-| 생성 파일 | 읽는 에이전트 |
-| --- | --- |
-| `.agents/skills/jev-utils/SKILL.md` | Codex |
-| `.claude/skills/jev-utils/SKILL.md` | Claude Code |
+| 프로젝트 설치 위치 | 스킬 | 읽는 에이전트 |
+| --- | --- | --- |
+| `.agents/skills/typesafe-ai/` | TypeSafe 공식 | Codex |
+| `.claude/skills/typesafe-ai/` | TypeSafe 공식 | Claude Code |
+| `.agents/skills/jev-utils/SKILL.md` | CLI 보조 | Codex |
+| `.claude/skills/jev-utils/SKILL.md` | CLI 보조 | Claude Code |
 
-안내문에는 프로젝트 루트에서 `npm run jev`를 실행하는 방법, 키 설정 확인, `decide`·`run`으로 샘플 질문 실행, `eval`로 기존 관측 파일 집계, 결과의 `ok`·실패·불확실성을 확인하는 방법이 들어 있습니다. 팀원이 같은 파일을 커밋받으면 같은 CLI 사용 안내를 공유합니다.
+공식 스킬은 [원본 저장소의 특정 커밋](https://github.com/typesafe-ai/skills/tree/65a39f393687675ce170e6094757de20370365b9/skills/typesafe-ai)을 수정 없이 보관하고, `SKILL.md`와 라이선스를 함께 복사합니다. 별도 다운로드나 설치 명령은 필요하지 않습니다. 기존 프로젝트·개인 스킬 또는 활성화된 Claude 공식 플러그인이 발견되면 중복 설치하지 않고 재사용하며, 명령 출력에 그 결과를 표시합니다. [보관한 원본 기록](third-party/typesafe-ai/source.json).
+
+CLI 보조 안내문에는 프로젝트 루트에서 `npm run jev`를 실행하는 방법, 키 설정 확인, `decide`·`run`으로 샘플 질문 실행, `eval`로 기존 관측 파일 집계, 결과의 `ok`·실패·불확실성을 확인하는 방법이 들어 있습니다. 팀원이 생성된 파일을 커밋받으면 같은 안내를 공유합니다. 개인 스킬을 재사용한 환경에서는 프로젝트에 공식 스킬 파일을 만들지 않으므로, 공식 스킬이 없는 팀원은 `connect`를 실행해 추가할 수 있습니다.
 
 연결한 프로젝트에서 새 에이전트 세션을 열고 다음처럼 요청할 수 있습니다.
 
@@ -127,7 +132,7 @@ pnpm·yarn·Deno는 해당 실행 환경에 맞게 수동 설치합니다. [설�
 
 에이전트는 작업과 스킬의 설명이 맞으면 스킬을 선택할 수 있습니다. 이름을 꼭 언급할 필요는 없으며 선택과 실행은 작업 맥락에 따릅니다. [Codex 스킬 선택·경로](https://developers.openai.com/codex/skills/), [Claude Code 스킬 선택·경로](https://code.claude.com/docs/en/skills).
 
-이 스킬은 CLI 실험과 집계를 안내합니다. **TypeSafe 공식 `typesafe-ai` 스킬은 `connect` 설치 대상이 아니며**, API 연동·질문 설계에 필요하면 아래 안내로 별도 설치합니다. [보조 스킬 상세 안내](docs/installation.md).
+공식 스킬로 질문을 설계하고 보조 스킬로 CLI를 실행하는 흐름을 사용할 수 있습니다. 앱 코드를 작성하지 않고도 에이전트가 CLI에 입력·질문·선택지를 전달해 Jev의 판단을 받아 작업에 활용할 수 있습니다. API 키 설정은 별도이며, 스킬 선택과 실제 호출이 모든 요청에서 보장되지는 않습니다. [스킬 상세 안내](docs/installation.md).
 
 ## 공식 SDK 호출에 응답 검증 추가하기
 
@@ -177,7 +182,11 @@ else console.log(result.error.kind);
 
 ## 에이전트에서 공식 TypeSafe 스킬 사용하기
 
-API 연동과 질문 설계에는 [TypeSafe 공식 스킬](https://github.com/typesafe-ai/skills)을 사용합니다.
+API 연동과 질문 설계에는 [TypeSafe 공식 스킬](https://github.com/typesafe-ai/skills)을 사용합니다. **`connect`가 공식 스킬도 함께 연결하므로 아래 명령을 추가로 실행할 필요는 없습니다.**
+
+### `connect` 없이 공식 스킬만 설치하기
+
+공식 스킬만 사용하거나 프로젝트 설치 대신 개인 설치를 관리하려면 공식 설치 방법을 선택합니다. 중복 설치할 필요는 없습니다.
 
 Claude Code:
 
@@ -208,7 +217,7 @@ npx skills add typesafe-ai/skills --skill typesafe-ai
 
 실제 API 실험에는 실행 가능한 SDK 코드나 CLI와 `TYPESAFE_API_KEY`가 필요하며, 요청한 작업 범위와 실행 권한 안에서 호출합니다. 공식 스킬 설치는 API 키나 앱의 호출 코드를 만들어 주지 않습니다. 에이전트가 하는 모든 판단을 자동으로 Jev에 위임하는 실행 연결도 포함하지 않습니다. [TypeSafe 공식 스킬의 역할·실험 안내](https://docs.typesafe.ai/agent-skill), [코딩 에이전트와 Jev의 관계](https://docs.typesafe.ai/introduction/coding-agents).
 
-자동 선택이 되지 않으면 “TypeSafe 스킬을 사용해줘”라고 지정할 수 있습니다. Claude Code에서는 `/typesafe:typesafe-ai`로도 호출합니다. 공식 스킬은 TypeSafe 연동을 안내하며, 이 비공식 `jev-utils` 패키지를 자동 설치하거나 사용하도록 지정하지는 않습니다.
+자동 선택이 되지 않으면 “TypeSafe 스킬을 사용해줘”라고 지정할 수 있습니다. Claude Code의 프로젝트 스킬은 `/typesafe-ai`, 공식 플러그인으로 설치한 스킬은 `/typesafe:typesafe-ai`로도 호출합니다. 공식 스킬의 원본은 이 비공식 패키지를 설치하거나 사용하도록 지정하지 않습니다. `connect`가 SDK·유틸리티·공식 스킬·CLI 보조 스킬을 함께 사용할 수 있게 준비합니다.
 
 이 저장소의 `jev-utils` 스킬은 로컬 CLI로 샘플을 실행하거나 관측 파일을 집계할 때 사용합니다. [CLI 실행](docs/cli.md), [보조 스킬 설치](docs/installation.md).
 

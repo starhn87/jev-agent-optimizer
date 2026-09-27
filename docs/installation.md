@@ -1,6 +1,6 @@
-# 판단 스킬 설치
+# 공식 스킬·CLI 보조 스킬 설치
 
-일반 CLI 설치·키 설정·실행은 [CLI 안내](cli.md)를 따릅니다. API 연동과 질문 설계에는 [TypeSafe 공식 스킬](https://github.com/typesafe-ai/skills)을 사용합니다. 이 문서는 Jev Utils CLI를 호출하는 보조 스킬의 설치 안내입니다.
+일반 CLI 설치·키 설정·실행은 [CLI 안내](cli.md)를 따릅니다. `connect`는 API 연동·질문 설계를 위한 [TypeSafe 공식 스킬](https://github.com/typesafe-ai/skills)과 Jev Utils CLI를 호출하는 보조 스킬을 함께 연결합니다.
 
 ## 스킬로 할 수 있는 작업
 
@@ -20,7 +20,12 @@ clone한 Jev Utils 폴더에서:
 npm run connect -- ../my-app
 ```
 
-공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 이 저장소의 `skills/jev-utils/SKILL.md`를 `.agents/skills/jev-utils/SKILL.md`와 `.claude/skills/jev-utils/SKILL.md`에 같은 내용으로 복사합니다. TypeSafe 공식 `typesafe-ai` 스킬은 `connect`로 설치하지 않으며 [별도 설치 안내](../README.md#에이전트에서-공식-typesafe-스킬-사용하기)를 따릅니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
+공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 다음 두 종류의 스킬을 연결합니다.
+
+- 공식 `typesafe-ai`: `.agents/skills/typesafe-ai/`와 `.claude/skills/typesafe-ai/`에 원본 디렉터리와 라이선스를 복사합니다. 기존 프로젝트·개인 스킬 또는 활성 Claude 공식 플러그인이 있으면 재사용합니다.
+- 보조 `jev-utils`: `.agents/skills/jev-utils/SKILL.md`와 `.claude/skills/jev-utils/SKILL.md`에 CLI 사용 안내를 복사합니다.
+
+공식 스킬은 질문·평가·SDK 연동을 설계하고, 보조 스킬은 준비한 질문을 CLI로 실행하거나 결과를 집계하는 흐름에 사용할 수 있습니다. 공식 스킬 설치 결과는 `connect` 출력에 표시됩니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 생성된 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다. 개인 스킬을 재사용해 공식 프로젝트 스킬이 생성되지 않았다면, 공식 스킬이 없는 팀원은 `connect`를 다시 실행해 추가할 수 있습니다.
 
 프로젝트 스킬과 개인 스킬을 중복 설치할 필요는 없습니다. 여러 저장소에서 공통으로 사용할 개인 스킬이 필요할 때만 아래의 `agent install` 방식을 선택하세요.
 

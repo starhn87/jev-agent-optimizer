@@ -1,6 +1,6 @@
 # 다른 프로젝트에 설치하고 서버에 적용하기
 
-설치와 서버 적용은 별도 작업입니다. `connect`는 공식 SDK·응답 유틸리티·CLI·스킬을 설치합니다. 서버에서 Jev 판단을 사용하려면 기존 요청 처리에 공식 SDK 호출과 필요한 응답 검증을 구현해야 합니다. 에이전트 스킬은 CLI 호출과 평가 작업의 안내입니다.
+설치와 서버 적용은 별도 작업입니다. `connect`는 공식 SDK·응답 유틸리티·CLI·TypeSafe 공식 스킬·CLI 보조 스킬을 연결합니다. 서버에서 Jev 판단을 사용하려면 기존 요청 처리에 공식 SDK 호출과 필요한 응답 검증을 구현해야 합니다. 공식 스킬은 질문 설계·SDK 연동을, 보조 스킬은 CLI 호출·결과 집계를 안내합니다.
 
 ## `connect`가 하는 설치 작업
 
@@ -24,10 +24,13 @@ npm run connect -- ../my-app
 
 - `package.json`: `@typesafe-ai/sdk@0.6.0`과 `@starhn87/jev-decisions` 운영 의존성, `@starhn87/jev-utils` 개발 의존성, `jev` npm 명령을 추가합니다.
 - `package-lock.json`·`node_modules/`: `npm install`로 의존성을 설치하고 lockfile을 갱신합니다. 프로젝트의 install/postinstall 스크립트는 실행하지 않습니다.
-- `vendor/jev-utils/`: 두 패키지 파일과 소유 파일의 해시를 기록한 `connection.json`을 보관합니다.
+- `vendor/jev-utils/`: 두 패키지 파일과 소유 파일의 해시, 공식 스킬 원본 버전·연결 방식을 기록한 `connection.json`을 보관합니다.
 - `.agents/skills/jev-utils/SKILL.md`·`.claude/skills/jev-utils/SKILL.md`: 두 에이전트의 프로젝트 스킬을 생성합니다.
+- `.agents/skills/typesafe-ai/`·`.claude/skills/typesafe-ai/`: 기존 공식 스킬이 없으면 TypeSafe 공식 스킬 디렉터리 전체를 원본·라이선스와 함께 설치합니다.
 
-프로젝트 스킬은 Codex·Claude Code에 Jev Utils 사용법을 알려주는 설명서입니다. 이 저장소의 `skills/jev-utils/SKILL.md`를 두 위치에 복사하며, 설명서에는 프로젝트의 `npm run jev` 명령, 샘플 질문 실행, 기존 관측 파일 집계와 결과 확인 방법이 들어 있습니다. TypeSafe 공식 `typesafe-ai` 스킬은 이 명령으로 설치하지 않습니다. [스킬 내용·사용 예](../README.md#프로젝트-스킬에는-무엇이-들어가나요), [공식 스킬 별도 설치](../README.md#에이전트에서-공식-typesafe-스킬-사용하기).
+프로젝트 스킬은 Codex·Claude Code가 작업 중 읽는 설명서입니다. TypeSafe 공식 `typesafe-ai`는 질문·평가 설계와 SDK 사용법을 안내합니다. 이 저장소의 `jev-utils` 보조 스킬에는 프로젝트의 `npm run jev` 명령, 샘플 질문 실행, 기존 관측 파일 집계와 결과 확인 방법이 들어 있습니다. [스킬 내용·사용 예](../README.md#프로젝트-스킬에는-무엇이-들어가나요).
+
+공식 스킬은 `third-party/typesafe-ai/`에 특정 커밋의 원본 디렉터리 전체와 라이선스를 보관합니다. `connect`는 보관된 해시를 확인한 뒤 복사하므로 스킬 설치에 추가 다운로드가 없습니다. 기존 프로젝트·개인 스킬 또는 활성화된 Claude 공식 플러그인이 있으면 에이전트별로 재사용하고, 결과를 명령 출력과 연결 기록에 표시합니다. 개인 스킬·플러그인 파일이나 설정은 변경하지 않습니다. [원본 기록](../third-party/typesafe-ai/source.json).
 
 `@starhn87/jev-eval` 라이브러리도 설치 대상에 포함되지 않습니다. CLI의 `eval`로 파일을 집계할 수 있으며, 앱 코드에서 평가·주간 보고 함수를 import하려면 [평가 패키지를 별도로 설치](../packages/eval/README.md)합니다.
 
@@ -87,11 +90,11 @@ const result = await observe({
 
 - `package.json`과 `package-lock.json`
 - `vendor/jev-utils/` 전체
-- `.agents/skills/jev-utils/`와 `.claude/skills/jev-utils/`
+- 생성된 `.agents/skills/jev-utils/`·`.claude/skills/jev-utils/`와 공식 `.agents/skills/typesafe-ai/`·`.claude/skills/typesafe-ai/`
 
 외부 clone이나 전역 CLI가 필요하지 않습니다. 운영 환경에서 `npm ci --omit=dev`로 설치하면 공식 SDK와 응답 유틸리티를 포함하고 CLI는 제외합니다. 서버의 API 키는 앱의 비밀 설정으로 별도 전달합니다.
 
-업데이트는 Jev Utils clone을 갱신한 다음 `npm run connect -- ../my-app`을 다시 실행하고, 앱의 질문 사례를 평가합니다. 변경된 연결 파일을 커밋해 반영합니다.
+업데이트는 Jev Utils clone을 갱신한 다음 `npm run connect -- ../my-app`을 다시 실행하고, 앱의 질문 사례를 평가합니다. 변경된 연결 파일을 커밋해 반영합니다. 이전 연결에도 공식 스킬이 추가됩니다. `connect`가 설치한 공식 스킬은 함께 갱신하며, 기존 개인 스킬·플러그인을 재사용한 경우에는 그 설치 방식으로 업데이트합니다. 공식 스킬이 없는 팀원은 `connect`를 다시 실행하면 프로젝트 스킬을 추가할 수 있습니다.
 
 ## 설치 명령을 쓰지 않는 경우
 
