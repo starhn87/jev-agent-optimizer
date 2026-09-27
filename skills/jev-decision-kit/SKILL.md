@@ -1,22 +1,26 @@
 ---
 name: jev-decision-kit
-description: Run or evaluate project-owned Jev decision questions with the jev-decision-kit CLI when testing or integrating Jev decisions.
+description: Test small choice-based classifications and relevance checks, evaluate labelled decision results, or integrate Jev decisions into a project using the Jev Decision Kit CLI and library. Use for trying explicit questions and labels on samples or reviewing existing decision observations.
 ---
 
 # Jev Decision Kit
 
-Use the CLI to execute a defined Jev question and inspect its validated result. Start from the project's existing questions, labels and application policy.
+Use the CLI to execute a defined Jev question and inspect its validated result. Start from the project's existing questions, labels and application policy. This skill can be selected from the task context; the user does not need to name it. Use it for bounded decision experiments and integration, rather than general code work or every conversation message.
 
-Use the local clone. In its root, invoke commands with `npm run --silent cli -- <command>`. An installed skill includes `nodeFile` and `cliFile` below: use those absolute paths with argument arrays to call the CLI from the consuming project's working directory. This preserves relative paths to that project's question and observation files. For the repository or marketplace skill, resolve the existing clone's `packages/cli/dist/cli.mjs` before invoking it.
+If the project has a `jev` npm script calling `jev-decision-kit`, run `npm run --silent jev -- <command>` from that project's root. For example, `npm run --silent jev -- eval observations.jsonl` reads the project's own data. Prefer this portable project command when available.
 
-Check the key configuration with `doctor`. If setup is needed, the user can enter their TypeSafe key through `npm run setup` in the clone; the key stays in the private user configuration. Never include a key in command arguments or generated artifacts.
+Otherwise use the local clone. In its root, invoke commands with `npm run --silent cli -- <command>`. An installed skill includes `nodeFile` and `cliFile` below: use those absolute paths with argument arrays to call the CLI from the consuming project's working directory. This preserves relative paths to that project's question and observation files. For the repository or marketplace skill, resolve the existing clone's `packages/cli/dist/cli.mjs` before invoking it.
 
-For execution checks, `npm run demo -- --offline` and `npm run cli -- eval --demo` use prepared data without provider calls.
+To connect an npm project, run `npm run connect -- /path/to/project` from the clone. This command uses prepared packages and needs no toolkit dependency installation or build. It installs the decision library, a project-local CLI, and project skills. Then integrate `createDecisionClient` into the existing server code, following the project's questions and error/deferred policy. Connecting packages alone does not change the app's request handling. If the project is already connected, reuse its command and library.
+
+Check the key configuration with `doctor`. If setup is needed, the user can enter their TypeSafe key through `npm run jev -- init` in a connected project or `npm run setup` in the clone; the key stays in the private user configuration. Never include a key in command arguments or generated artifacts. An application's server supplies its own secret to `createDecisionClient`; it does not read the CLI's private key file.
+
+For execution checks in a connected project, `npm run jev -- demo --offline` and `npm run jev -- eval --demo` use prepared data without provider calls. With a standalone clone, build its CLI first and run these subcommands through its `cli` script instead.
 
 For a real decision, pass the authorized input, question and labels:
 
 ```sh
-npm run --silent cli -- decide --text "Change my account settings" --question "Is this a support request?" --choices "yes,no,uncertain" --json
+npm run --silent jev -- decide --text "Change my account settings" --question "Is this a support request?" --choices "yes,no,uncertain" --json
 ```
 
 Use `run questions.json --json` for an existing project question definition. The `--model` option selects the Jev decision model. Check `ok` before using answers and retain reported errors or uncertainty for the caller's fallback policy.

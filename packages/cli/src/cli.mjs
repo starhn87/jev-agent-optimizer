@@ -2,28 +2,29 @@
 import { readFileSync } from 'node:fs';
 import { createDecisionClient } from '../../decisions/dist/index.js';
 import { summarize } from '../../eval/index.mjs';
-import { configuration, initialize, keyFile } from './config.mjs';
+import { cliCommand, configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
 
 const help = `Jev Decision Kit — 설정, 판단 실행, 평가\n
-  clone한 저장소에서는 npm run cli -- <하위 명령>으로 실행합니다.\n
-  jev-decision-kit init                    API 키 설정 (화면에 표시하지 않음)
-  jev-decision-kit demo                    준비된 Jev 판단 예제 실행
-  jev-decision-kit demo --offline          키 없이 모의 예제 실행
-  jev-decision-kit decide --text "..." --question "..." --choices "예,아니오,판단보류"
-  jev-decision-kit run FILE.json           정의한 질문 실행
-  jev-decision-kit eval FILE.jsonl          관측 결과 집계
-  jev-decision-kit eval --demo              준비된 평가 예제 실행
-  jev-decision-kit doctor                  API 키 설정 상태 확인
-  jev-decision-kit agent install [codex|claude|both]  판단 CLI 호출 스킬 설치
-  jev-decision-kit agent doctor
-  jev-decision-kit agent uninstall [codex|claude|both]
+  연결한 프로젝트: npm run jev -- <하위 명령>
+  clone한 저장소: npm run cli -- <하위 명령>\n
+  ${cliCommand('init')}                    API 키 설정 (화면에 표시하지 않음)
+  ${cliCommand('demo')}                    준비된 Jev 판단 예제 실행
+  ${cliCommand('demo --offline')}          키 없이 모의 예제 실행
+  ${cliCommand('decide --text "..." --question "..." --choices "예,아니오,판단보류"')}
+  ${cliCommand('run FILE.json')}           정의한 질문 실행
+  ${cliCommand('eval FILE.jsonl')}          관측 결과 집계
+  ${cliCommand('eval --demo')}              준비된 평가 예제 실행
+  ${cliCommand('doctor')}                  API 키 설정 상태 확인
+  ${cliCommand('agent install [codex|claude|both]')}  개인 판단 스킬 설치
+  ${cliCommand('agent doctor')}
+  ${cliCommand('agent uninstall [codex|claude|both]')}
 `;
 function options(args, allowed) {
   const parsed = {};
   for (let index = 0; index < args.length; index++) {
     const name = args[index];
-    if (!allowed.includes(name) || Object.hasOwn(parsed, name)) throw new Error('옵션을 확인하세요. jev-decision-kit --help로 사용법을 볼 수 있습니다.');
+    if (!allowed.includes(name) || Object.hasOwn(parsed, name)) throw new Error(`옵션을 확인하세요. ${cliCommand('--help')}로 사용법을 볼 수 있습니다.`);
     if (name === '--offline' || name === '--json') parsed[name] = true;
     else {
       const value = args[++index];
@@ -47,7 +48,7 @@ async function decide(input, flags, demo = false) {
       decision: { type: 'choice', choice: '예', confidence: 0.97,
         probabilities: { 예: 0.97, 아니오: 0.02, 판단보류: 0.01 } },
     } }), { headers: { 'content-type': 'application/json' } });
-  } else if (!config.apiKey) throw new Error('먼저 jev-decision-kit init을 실행하세요. 키 없이 확인하려면 demo --offline을 사용하세요.');
+  } else if (!config.apiKey) throw new Error(`먼저 ${cliCommand('init')}을 실행하세요. 키 없이 확인하려면 demo --offline을 사용하세요.`);
   if (demo && !flags['--json']) {
     console.log(`Jev 판단 예제 — ${flags['--offline'] ? '모의 실행 (네트워크 호출 없음)' : '실제 API 호출'}\n`);
     console.log(`입력 문장: ${input.state.message}\n질문: ${input.questions.decision.instructions}\n선택지: ${Object.keys(input.questions.decision.criteria).join(' / ')}\n`);
@@ -73,27 +74,27 @@ async function main() {
   if (!command || command === '--help' || command === 'help') return console.log(help);
   if (command === 'init') return initialize(args);
   if (command === 'doctor') {
-    if (args.length) throw new Error('사용법: jev-decision-kit doctor');
+    if (args.length) throw new Error(`사용법: ${cliCommand('doctor')}`);
     const { apiKey, model } = configuration();
-    console.log(`API 키: ${apiKey ? '설정됨 (값은 표시하지 않음)' : '설정 필요 — jev-decision-kit init'}\nJev 모델: ${model}\n설정 위치: ${keyFile()}`);
+    console.log(`API 키: ${apiKey ? '설정됨 (값은 표시하지 않음)' : `설정 필요 — ${cliCommand('init')}`}\nJev 모델: ${model}\n설정 위치: ${keyFile()}`);
     return;
   }
   if (command === 'demo') return decide(request(), options(args, ['--offline', '--json', '--model', '--timeout-ms', '--base-url']), true);
   if (command === 'decide') {
     const flags = options(args, ['--text', '--question', '--choices', '--json', '--model', '--timeout-ms', '--base-url']);
     const choices = flags['--choices']?.split(',').map(choice => choice.trim());
-    if (!flags['--text'] || !flags['--question'] || !choices || choices.length < 2 || choices.some(choice => !choice) || new Set(choices).size !== choices.length) throw new Error('text·question과 서로 다른 선택지 두 개 이상을 입력하세요. 사용법: jev-decision-kit --help');
+    if (!flags['--text'] || !flags['--question'] || !choices || choices.length < 2 || choices.some(choice => !choice) || new Set(choices).size !== choices.length) throw new Error(`text·question과 서로 다른 선택지 두 개 이상을 입력하세요. 사용법: ${cliCommand('--help')}`);
     return decide(request(flags['--text'], flags['--question'], choices), flags);
   }
   if (command === 'run') {
-    if (!args[0] || args[0].startsWith('--')) throw new Error('사용법: jev-decision-kit run FILE.json');
+    if (!args[0] || args[0].startsWith('--')) throw new Error(`사용법: ${cliCommand('run FILE.json')}`);
     let input;
     try { input = JSON.parse(readFileSync(args[0], 'utf8')); } catch { throw new Error('질문 JSON 파일을 읽을 수 없습니다.'); }
     if (!input || typeof input !== 'object' || !input.definitionId || !input.definitionVersion || !input.questions || !Object.hasOwn(input, 'state')) throw new Error('질문 정의에 definitionId, definitionVersion, state, questions가 필요합니다.');
     return decide(input, options(args.slice(1), ['--json', '--model', '--timeout-ms', '--base-url']));
   }
   if (command === 'eval') {
-    if (args.length !== 1) throw new Error('사용법: jev-decision-kit eval FILE.jsonl 또는 eval --demo');
+    if (args.length !== 1) throw new Error(`사용법: ${cliCommand('eval FILE.jsonl')} 또는 eval --demo`);
     let rows;
     if (args[0] === '--demo') rows = [{ caseId: 'demo', groupId: 'demo', status: 'deferred', correct: null, meta: { durationMs: 120, inputTokens: null, outputTokens: 20 } }];
     else try { rows = readFileSync(args[0], 'utf8').split('\n').filter(line => line.trim()).map(line => JSON.parse(line)); }
@@ -101,6 +102,6 @@ async function main() {
     console.log(JSON.stringify(summarize(rows), null, 2)); return;
   }
   if (command === 'agent') return agent(args);
-  throw new Error('알 수 없는 명령입니다. jev-decision-kit --help로 사용법을 볼 수 있습니다.');
+  throw new Error(`알 수 없는 명령입니다. ${cliCommand('--help')}로 사용법을 볼 수 있습니다.`);
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

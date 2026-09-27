@@ -104,7 +104,7 @@ test('agent install only links decision skills and preserves app settings withou
   assert.equal(existsSync(join(h.home, '.jev-decision-kit/agent')), false);
   assert.equal(existsSync(join(h.home, '.jev-decision-kit/.env')), false);
   for (const path of ['.agents/skills/jev-decision-kit', '.claude/skills/jev-decision-kit']) {
-    assert.ok(lstatSync(join(h.home, path)).isSymbolicLink()); assert.match(h.get(`${path}/SKILL.md`), /cli -- decide/);
+    assert.ok(lstatSync(join(h.home, path)).isSymbolicLink());
     const location = JSON.parse(h.get(`${path}/SKILL.md`).split('```json\n').at(-1).split('\n```')[0]);
     assert.equal(location.nodeFile, process.execPath);
     assert.equal(location.cliFile, realpathSync(join(staging, 'node_modules/@starhn87/jev-decision-kit/dist/cli.mjs')));

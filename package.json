@@ -1,6 +1,6 @@
 {
   "name": "jev-decision-kit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -11,9 +11,10 @@
     "setup": "npm run build && node packages/cli/dist/cli.mjs init",
     "demo": "node packages/cli/dist/cli.mjs demo",
     "cli": "node packages/cli/dist/cli.mjs",
+    "connect": "node scripts/connect-project.mjs",
     "doctor": "npm run build && node packages/cli/dist/cli.mjs doctor",
     "disable": "npm run build && node packages/cli/dist/cli.mjs agent uninstall",
-    "check": "tsc -p packages/decisions/tsconfig.json --noEmit && node --check packages/cli/src/cli.mjs && node --check packages/cli/src/agent.mjs && node --check packages/cli/src/config.mjs",
+    "check": "tsc -p packages/decisions/tsconfig.json --noEmit && node --check packages/cli/src/cli.mjs && node --check packages/cli/src/agent.mjs && node --check packages/cli/src/config.mjs && node --check scripts/connect-project.mjs",
     "test": "npm run build && node --test tests/*.test.mjs packages/eval/*.test.mjs packages/reporting/*.test.mjs",
     "pack:decisions": "npm pack --workspace @starhn87/jev-decisions --pack-destination artifacts",
     "pack:eval": "npm pack --workspace @starhn87/jev-eval --pack-destination artifacts",

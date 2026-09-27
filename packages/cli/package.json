@@ -1,6 +1,6 @@
 {
   "name": "@starhn87/jev-decision-kit",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Configure, run and evaluate Jev decisions with optional CLI skills for coding agents",
   "type": "module",
   "license": "MIT",

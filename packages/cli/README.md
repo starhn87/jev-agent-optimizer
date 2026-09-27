@@ -33,9 +33,11 @@ npm run cli -- agent doctor
 npm run cli -- agent uninstall
 ```
 
+To connect an npm project, run `npm run connect -- ../my-app` from the clone. No toolkit dependency installation or build is required for this command. It installs the decision library, a project-local CLI, and Codex/Claude Code project skills. In that project, use `npm run jev -- demo --offline` or `npm run jev -- decide ...`. Commit its manifest, lockfile, `vendor/jev-decision-kit/`, and generated project skills for portable `npm ci` installation. See [project integration](https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md) for the server-code example.
+
 For JSON output, use `npm run --silent cli -- decide ... --json` to hide npm's script banner. Run a question-definition JSON file with `npm run cli -- run FILE.json` or aggregate observations with `npm run cli -- eval FILE.jsonl`.
 
-The optional agent commands install a skill and record the local CLI path so it can be called from another project. Re-run `agent install` after updating or moving the clone. Skill installation preserves app settings and model selection.
+The optional agent commands install a personal skill and record the local CLI path so it can be called from another project. A connected project already has its own skills, so it does not need this additional installation. Skills can be selected when a task matches their description; naming the skill is optional. Re-run `agent install` after updating or moving a personal skill's clone. Skill installation preserves app settings and model selection.
 
 Update with `git pull --ff-only`, `npm ci` and `npm run build`. To stop using the toolkit, uninstall any linked skills and remove the clone. The saved key is preserved.
 

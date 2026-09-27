@@ -3,7 +3,7 @@
 Validated Jev decisions for Workers, Deno and Node. The official TypeSafe SDK 0.6.0 is bundled; there are no external runtime imports or installation hooks. The package imports no Node modules and reads no environment variables.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-decisions-0.1.1.tgz
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.2/starhn87-jev-decisions-0.1.2.tgz
 ```
 
 This installs the packaged GitHub release through npm. npm registry publication is pending. Node examples require Node 22+; the same ESM also works in Workers and Deno.
