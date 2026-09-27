@@ -29,7 +29,7 @@ export function agent(args) {
   if (command === 'install') {
     for (const client of selected) if (present(links[client]) && !sameLink(links[client], root)) throw new Error(`${client} 스킬 위치에 다른 파일이 있어 덮어쓰지 않았습니다.`);
     const source = resolve(dirname(fileURLToPath(import.meta.url)), '../skills/jev-decision-kit/SKILL.md');
-    const text = readFileSync(source, 'utf8');
+    const text = readFileSync(source, 'utf8') + `\n## Installed CLI location\n\nUse these absolute paths to call the local CLI from the consuming project's working directory:\n\n\`\`\`json\n${JSON.stringify({ nodeFile: process.execPath, cliFile: fileURLToPath(import.meta.url) }, null, 2)}\n\`\`\`\n`;
     if (existsSync(file) && hash(readFileSync(file, 'utf8')) !== (state.skillHash ?? hash(text))) throw new Error('설치한 스킬 파일이 수정되어 갱신을 중단했습니다.');
     mkdirSync(root, { recursive: true, mode: 0o700 });
     privateWrite(file, text);

@@ -51,5 +51,5 @@ export async function initialize(args) {
   const previous = existsSync(keyFile()) ? readFileSync(keyFile(), 'utf8') : '';
   const remaining = previous.split('\n').filter(line => !/^\s*(?:export\s+)?(?:TYPESAFE_API_KEY|JEV_KIT_MODEL)\s*=/.test(line)).join('\n').trim();
   privateWrite(keyFile(), `${remaining ? remaining + '\n' : ''}TYPESAFE_API_KEY=${JSON.stringify(key)}\nJEV_KIT_MODEL=${defaultModel}\n`);
-  console.log('설정 완료. 다음 명령: jev-decision-kit demo');
+  console.log(`설정 완료. 다음 명령: ${['setup', 'cli'].includes(process.env.npm_lifecycle_event) ? 'npm run demo' : 'jev-decision-kit demo'}`);
 }

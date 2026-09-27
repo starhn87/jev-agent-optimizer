@@ -9,6 +9,8 @@
   "scripts": {
     "build": "npm run build --workspace @starhn87/jev-decisions && node scripts/build-cli.mjs",
     "setup": "npm run build && node packages/cli/dist/cli.mjs init",
+    "demo": "node packages/cli/dist/cli.mjs demo",
+    "cli": "node packages/cli/dist/cli.mjs",
     "doctor": "npm run build && node packages/cli/dist/cli.mjs doctor",
     "disable": "npm run build && node packages/cli/dist/cli.mjs agent uninstall",
     "check": "tsc -p packages/decisions/tsconfig.json --noEmit && node --check packages/cli/src/cli.mjs && node --check packages/cli/src/agent.mjs && node --check packages/cli/src/config.mjs",

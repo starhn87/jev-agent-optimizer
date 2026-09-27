@@ -1,6 +1,6 @@
 {
   "name": "jev-decision-kit",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Run and evaluate project-owned Jev decisions through the Jev Decision Kit CLI",
   "author": { "name": "Jev Decision Kit contributors" }
 }

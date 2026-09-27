@@ -1,36 +1,44 @@
 # Jev Decision Kit CLI
 
-Configure an API key, run validated Jev decisions and evaluate observations from one command. Node.js 22+, npm and Git are required.
+Clone the repository and run the CLI in that folder. Node.js 22+, npm and Git are required.
 
 ```sh
-npm install -g github:starhn87/jev-decision-kit#cli
-jev-decision-kit init
-jev-decision-kit demo
+git clone https://github.com/starhn87/jev-decision-kit.git
+cd jev-decision-kit
+npm ci
+npm run setup
+npm run demo
 ```
 
-Keep `#cli` in the installation command to install the ready-to-run package from GitHub. npm login is not required.
+`npm ci` installs dependencies inside the clone. `setup` builds the CLI and prompts for your TypeSafe API key without echoing it. The key is stored in `~/.jev-decision-kit/.env` with owner-only permissions. Subsequent runs use `npm run demo` directly.
 
-`init` prompts for your TypeSafe API key without echoing it and stores it in `~/.jev-decision-kit/.env` with owner-only permissions. `demo` asks whether a sample sentence is an account-support inquiry, showing the input, question, choices, explained result, model confidence and elapsed time. `예` means yes, `아니오` means no, and `판단보류` means deferred. No JavaScript files or repository checkout are needed.
+The demo asks whether a sample sentence is an account-support inquiry, showing the input, question, choices, explained result, model confidence and elapsed time. `예` means yes, `아니오` means no, and `판단보류` means deferred.
+
+To check execution without an API key, use `npm run build` in place of `npm run setup`, then:
 
 ```sh
-jev-decision-kit demo --offline
-jev-decision-kit eval --demo
-jev-decision-kit decide --text "Change my account settings" --question "Is this a support request?" --choices "yes,no,uncertain"
-jev-decision-kit doctor
-jev-decision-kit --help
+npm run demo -- --offline
+npm run cli -- eval --demo
 ```
 
-`demo --offline` and `eval --demo` do not call external APIs. Add `--json` to a decision command for structured output. Advanced callers can run a question-definition JSON file with `run FILE.json` or aggregate observations with `eval FILE.jsonl`.
+Other commands from the clone:
 
 ```sh
-jev-decision-kit agent install codex
-jev-decision-kit agent install claude
-jev-decision-kit agent doctor
-jev-decision-kit agent uninstall
+npm run cli -- decide --text "Change my account settings" --question "Is this a support request?" --choices "yes,no,uncertain"
+npm run doctor
+npm run cli -- --help
+npm run cli -- agent install codex
+npm run cli -- agent install claude
+npm run cli -- agent doctor
+npm run cli -- agent uninstall
 ```
 
-The optional agent commands install or remove a skill that calls this decision CLI. They manage only skill files and links; app settings, model selection and background services are outside this installer. Re-run `agent install` after a CLI update to refresh the skill.
+For JSON output, use `npm run --silent cli -- decide ... --json` to hide npm's script banner. Run a question-definition JSON file with `npm run cli -- run FILE.json` or aggregate observations with `npm run cli -- eval FILE.jsonl`.
 
-For automation, pass an API key in `TYPESAFE_API_KEY`, or supply it to `init --stdin`. Do not put the key in a command argument. `JEV_KIT_MODEL` overrides the default `jev-1.13.0`.
+The optional agent commands install a skill and record the local CLI path so it can be called from another project. Re-run `agent install` after updating or moving the clone. Skill installation preserves app settings and model selection.
+
+Update with `git pull --ff-only`, `npm ci` and `npm run build`. To stop using the toolkit, uninstall any linked skills and remove the clone. The saved key is preserved.
+
+For automation, supply the key through `TYPESAFE_API_KEY` or `npm run cli -- init --stdin`. Do not put the key in a command argument. `JEV_KIT_MODEL` overrides the default `jev-1.13.0`.
 
 Full documentation: [Jev Decision Kit](https://github.com/starhn87/jev-decision-kit#readme).

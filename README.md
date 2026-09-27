@@ -4,17 +4,19 @@
 
 ## 바로 실행하기
 
-Node.js 22 이상과 npm, Git이 필요합니다. 아래 세 명령을 순서대로 실행하세요.
+Node.js 22 이상과 npm, Git이 필요합니다. 저장소를 받아 그 폴더에서 실행하세요.
 
 ```sh
-npm install -g github:starhn87/jev-decision-kit#cli
-jev-decision-kit init
-jev-decision-kit demo
+git clone https://github.com/starhn87/jev-decision-kit.git
+cd jev-decision-kit
+npm ci
+npm run setup
+npm run demo
 ```
 
-첫 명령은 공개 GitHub 패키지를 설치합니다. `#cli`까지 포함해서 실행하세요. npm 로그인은 필요하지 않습니다.
+`npm ci`는 이 폴더 안에 필요한 의존성을 설치합니다. `npm run setup`은 CLI를 준비하고 TypeSafe API 키를 입력받습니다. 한 번 준비한 뒤에는 `npm run demo`로 바로 실행합니다.
 
-`init`이 TypeSafe API 키를 입력받아 저장합니다. 입력한 키는 화면에 표시하지 않고 사용자 폴더 `~/.jev-decision-kit/.env`에 저장합니다. `demo`는 준비된 문장이 계정 지원 문의인지 Jev에 묻고, 입력·질문·선택지와 판단 결과를 함께 보여줍니다.
+입력한 키는 화면에 표시하지 않고 사용자 폴더 `~/.jev-decision-kit/.env`에 저장합니다. `demo`는 준비된 문장이 계정 지원 문의인지 Jev에 묻고, 입력·질문·선택지와 판단 결과를 함께 보여줍니다.
 
 ```text
 Jev 판단 예제 — 실제 API 호출
@@ -31,11 +33,11 @@ Jev 모델: jev-1.13.0
 
 위는 출력 예시이며 실제 결과·신뢰도·처리 시간은 실행마다 달라집니다. 신뢰도는 모델이 보고한 값이며, 정확도는 별도의 정답 데이터로 평가합니다.
 
-키 없이 명령이 동작하는지 먼저 확인하려면:
+키 없이 먼저 확인하려면 위의 `npm run setup` 대신 `npm run build`를 실행한 후:
 
 ```sh
-jev-decision-kit demo --offline
-jev-decision-kit eval --demo
+npm run demo -- --offline
+npm run cli -- eval --demo
 ```
 
 `--offline`은 모의 응답을 사용하고, `eval --demo`는 준비된 관측 결과를 집계합니다. 둘 다 외부 API를 호출하지 않습니다.
@@ -43,16 +45,16 @@ jev-decision-kit eval --demo
 ## 내 문장 판단하기
 
 ```sh
-jev-decision-kit decide --text "계정 설정을 변경하고 싶어요" --question "고객 지원 문의인가?" --choices "예,아니오,판단보류"
+npm run cli -- decide --text "계정 설정을 변경하고 싶어요" --question "고객 지원 문의인가?" --choices "예,아니오,판단보류"
 ```
 
-질문과 선택지를 명령에 전달하면 결과를 바로 보여줍니다. 다른 프로그램에서 결과를 읽으려면 끝에 `--json`을 붙이세요. 정의해 둔 여러 질문은 `jev-decision-kit run questions.json`, 수집한 관측 결과는 `jev-decision-kit eval observations.jsonl`로 처리할 수 있습니다.
+질문과 선택지를 명령에 전달하면 결과를 바로 보여줍니다. 다른 프로그램에서 결과를 읽으려면 `npm run --silent cli -- decide ... --json`처럼 실행하세요. `--silent`는 npm의 실행 안내를 숨겨 JSON만 출력합니다. 정의해 둔 여러 질문은 `npm run cli -- run questions.json`, 수집한 관측 결과는 `npm run cli -- eval observations.jsonl`로 처리할 수 있습니다.
 
 상태 확인과 전체 명령 안내:
 
 ```sh
-jev-decision-kit doctor
-jev-decision-kit --help
+npm run doctor
+npm run cli -- --help
 ```
 
 ## 에이전트에서 판단 CLI 사용하기
@@ -60,23 +62,26 @@ jev-decision-kit --help
 Codex·Claude Code에서 판단 CLI를 호출하는 스킬을 설치할 수 있습니다.
 
 ```sh
-jev-decision-kit agent install codex
-jev-decision-kit agent install claude
-jev-decision-kit agent doctor
+npm run cli -- agent install codex
+npm run cli -- agent install claude
+npm run cli -- agent doctor
 ```
 
-두 앱의 스킬을 함께 설치하려면 `jev-decision-kit agent install`을 실행합니다. 새 세션에서 `jev-decision-kit` 스킬로 필요한 질문을 실행합니다. 설치 명령은 스킬 파일과 연결만 관리합니다. [설치 범위와 제거](docs/installation.md).
+두 앱의 스킬을 함께 설치하려면 `npm run cli -- agent install`을 실행합니다. 설치된 스킬은 이 저장소의 CLI 위치를 기록하므로 다른 프로젝트에서도 호출할 수 있습니다. 새 세션에서 `jev-decision-kit` 스킬로 필요한 질문을 실행합니다. [설치 범위와 제거](docs/installation.md).
 
 ## 업데이트와 제거
 
-업데이트는 처음의 `npm install -g` 명령을 다시 실행하면 됩니다. 키는 사용자 폴더에 저장됩니다. 스킬도 갱신하려면 `jev-decision-kit agent install`을 다시 실행하세요.
+저장소 폴더에서 다음을 실행해 업데이트합니다.
 
 ```sh
-jev-decision-kit agent uninstall
-npm uninstall -g @starhn87/jev-decision-kit
+git pull --ff-only
+npm ci
+npm run build
 ```
 
-첫 명령은 설치한 판단 스킬을, 둘째 명령은 CLI를 제거합니다. 저장한 키 파일은 보존합니다.
+스킬도 갱신하려면 `npm run cli -- agent install`을 다시 실행하세요. 저장소를 이동했을 때도 스킬을 갱신하면 새 경로를 기록합니다.
+
+사용을 끝내려면 `npm run cli -- agent uninstall`로 설치한 스킬을 해제한 뒤 clone한 폴더를 제거하면 됩니다. 저장한 키 파일은 보존합니다.
 
 ## 애플리케이션 코드에서 사용하기
 
@@ -105,4 +110,4 @@ npm run test:compat
 npm run pack:cli
 ```
 
-실제 배포 패키지를 빈 프로젝트에 설치해 CLI·타입·런타임 호환성을 확인합니다. [릴리스 절차](docs/releases.md). CLI는 GitHub의 설치용 `cli` 브랜치에서 배포하며 npm registry 등록은 아직 하지 않았습니다.
+새 clone에서 준비·실행을 확인하고, 라이브러리 배포 패키지는 빈 프로젝트에서 타입·런타임 호환성을 확인합니다. [릴리스 절차](docs/releases.md). npm registry 등록은 아직 하지 않았습니다.

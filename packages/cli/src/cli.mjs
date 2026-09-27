@@ -6,6 +6,7 @@ import { configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
 
 const help = `Jev Decision Kit — 설정, 판단 실행, 평가\n
+  clone한 저장소에서는 npm run cli -- <하위 명령>으로 실행합니다.\n
   jev-decision-kit init                    API 키 설정 (화면에 표시하지 않음)
   jev-decision-kit demo                    준비된 Jev 판단 예제 실행
   jev-decision-kit demo --offline          키 없이 모의 예제 실행
