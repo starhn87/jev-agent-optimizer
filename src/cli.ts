@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, readFileSync, statSync, writeFileSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { codexArgs, codexChildEnv } from "./codex-args.js";
 import { startCodexProxy, type ProxyOptions } from "./codex-proxy.js";
 import { observeClaudePrompt } from "./claude-shadow.js";
 import { askJev } from "./jev.js";
 import { captureSink } from "./capture.js";
+import { buildLabelQueue } from "./label-queue.js";
+import { applyLabels } from "./labels.js";
+import { exportTrainingRows, toJsonl } from "./export-training.js";
 import { readLoginKeychainPassword } from "./keychain.js";
 import { writeMetric } from "./metrics.js";
 import { defaultSettings } from "./policy.js";
@@ -220,6 +223,9 @@ function help(): void {
     `  jao memory-filter FILE|- [--metrics FILE]  (passage selection; up to one paid Jev call)\n` +
     `  jao memory-report FILE\n` +
     `  jao memory-evaluate FILE  (human-labelled needed-passage recall)\n` +
+    `  jao label-queue DECISION [--limit N]  (review file from .local/capture/, needs JAO_CAPTURE=1 earlier)\n` +
+    `  jao label-apply REVIEWED-QUEUE.json  (merge filled labels into .local/labels/DECISION.jsonl)\n` +
+    `  jao export-training DECISION --out PREFIX [--holdout-percent 15]  (Kev-format training/holdout JSONL)\n` +
     `Router options: --mode pass|force|shadow|auto, --force-model ID,\n` +
     `  --baseline-model ID, --fast-model ID, --balanced-model ID,\n` +
     `  --strong-model ID, --downgrade-confidence 0..1, --shadow-fast-confidence 0..1 (log only),\n` +
@@ -351,6 +357,51 @@ async function main(): Promise<void> {
   if (command === "memory-evaluate") {
     if (args.length !== 1) throw new Error("memory-evaluate requires one labelled file");
     process.stdout.write(`${JSON.stringify(evaluateSearchSelections(readSearchEvaluation(args[0]!), 8), null, 2)}\n`);
+    return;
+  }
+  if (command === "label-queue") {
+    const usage = "usage: jao label-queue DECISION [--limit N]";
+    const decision = args[0];
+    const options = new Map<string, string>();
+    for (let index = 1; index < args.length; index += 2) {
+      const flag = args[index], value = args[index + 1];
+      if (!flag || flag !== "--limit" || !value || options.has(flag)) throw new Error(usage);
+      options.set(flag, value);
+    }
+    if (!decision) throw new Error(usage);
+    const limit = options.has("--limit") ? Number(options.get("--limit")) : undefined;
+    if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) throw new Error("--limit must be a positive integer");
+    process.stdout.write(`${JSON.stringify(buildLabelQueue(decision, { limit }), null, 2)}\n`);
+    return;
+  }
+  if (command === "label-apply") {
+    if (args.length !== 1) throw new Error("usage: jao label-apply REVIEWED-QUEUE.json");
+    const size = statSync(args[0]!).size;
+    if (size > 16 * 1024 * 1024) throw new Error("label queue file too large");
+    const items = JSON.parse(readFileSync(args[0]!, "utf8")) as unknown;
+    if (!Array.isArray(items)) throw new Error("label queue file must be a JSON array");
+    const decision = (items[0] as { decision?: unknown } | undefined)?.decision;
+    if (typeof decision !== "string") throw new Error("label queue file is empty or missing a decision");
+    const result = applyLabels(decision, items as Parameters<typeof applyLabels>[1]);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+  if (command === "export-training") {
+    const usage = "usage: jao export-training DECISION --out PREFIX [--holdout-percent 0-100]";
+    const decision = args[0];
+    const options = new Map<string, string>();
+    for (let index = 1; index < args.length; index += 2) {
+      const flag = args[index], value = args[index + 1];
+      if (!flag || !["--out", "--holdout-percent"].includes(flag) || !value || options.has(flag)) throw new Error(usage);
+      options.set(flag, value);
+    }
+    const out = options.get("--out");
+    if (!decision || !out) throw new Error(usage);
+    const holdoutPercent = options.has("--holdout-percent") ? Number(options.get("--holdout-percent")) : undefined;
+    const { train, holdout, skippedUnlabeled } = exportTrainingRows(decision, { holdoutPercent });
+    writeFileSync(`${out}-train.jsonl`, toJsonl(train));
+    writeFileSync(`${out}-holdout.jsonl`, toJsonl(holdout));
+    process.stdout.write(`${JSON.stringify({ train: train.length, holdout: holdout.length, skippedUnlabeled }, null, 2)}\n`);
     return;
   }
   if (command === "evaluate") {

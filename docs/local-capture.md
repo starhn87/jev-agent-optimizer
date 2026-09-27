@@ -23,7 +23,29 @@
 
 ## 라벨링과 학습으로 이어가기
 
-수집된 파일은 Jev·kev의 추측일 뿐 정답이 아닙니다. 파인튜닝에 쓰려면 사람이 직접 정답을 매긴 라벨이 필요합니다. `.local/capture/*.jsonl`을 kev의 학습 JSONL 형식(요청 모양 + 문항마다 `label`)으로 바꾸는 도구는 아직 없습니다 — 라벨링 도구와 함께 다음 단계로 추가할 예정입니다.
+수집된 파일은 Jev·kev의 추측일 뿐 정답이 아닙니다. 파인튜닝에 쓰려면 사람이 직접 정답을 매긴 라벨이 필요합니다.
+
+```bash
+# 1. 검토할 항목을 뽑는다. 같은 요청을 Jev와 kev가 모두 답했다면 참고용으로 둘 다 보여준다.
+node dist/cli.js label-queue route --limit 50 > .local/queue.json
+
+# 2. .local/queue.json을 열어 각 항목의 label을 채운다. compare.json과 같은 수작업 편집이다.
+#    - "choice" 문항: criteria의 키 중 하나를 문자열로 (예: "tier": "balanced")
+#    - "noul" 문항: true 또는 false
+#    - "score" 문항: criteria 배열의 위치 번호, 0부터 (예: "urgency": 2)
+#    label의 classifiers 필드는 참고용 답일 뿐이니 지우지 말고 그대로 두어도 된다.
+#    다 채우지 못한 항목은 tier를 null로 남겨 두면 된다 — 다음 단계가 건너뛴다.
+
+# 3. 채운 만큼만 저장소에 반영한다. 같은 key를 다시 넣으면 이전 라벨을 덮어쓴다.
+node dist/cli.js label-apply .local/queue.json
+
+# 4. 라벨이 붙은 요청만 kev 학습 형식으로 뽑는다. holdout은 kev 권장대로 10~20%.
+node dist/cli.js export-training route --out .local/kev-route --holdout-percent 15
+```
+
+`export-training`은 같은 `key`를 가진 요청을 매번 같은 쪽(train/holdout)으로 나눕니다. 라벨을 더 모아 다시 뽑아도 이미 나뉜 요청은 그대로 남고 새로 라벨된 것만 추가됩니다. 출력 파일(`<out>-train.jsonl`, `<out>-holdout.jsonl`)은 [kev의 학습 스크립트](https://github.com/jaredpalmer/kev#by-hand)가 그대로 읽는 모양이며, `id`·`classifier`·`decision`·`key` 같은 수집용 메타데이터는 들어가지 않습니다.
+
+라벨 저장소는 `.local/labels/<decision>.jsonl`에 쌓입니다. 역시 git이 무시하는 로컬 전용 파일입니다.
 
 ## 지우기
 

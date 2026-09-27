@@ -34,6 +34,15 @@ export function captureFile(decision: string, root = REPO_ROOT): string {
   return join(captureDirectory(root), `${decision}.jsonl`);
 }
 
+// Every runtime that writes this decision's captures, e.g. Codex/CLI (no suffix)
+// and the Claude hook (-claude). Add a suffix here when another writer is added.
+const CAPTURE_SUFFIXES = ["", "-claude"];
+
+export function captureFilesFor(decision: string, root = REPO_ROOT): string[] {
+  if (!/^[a-z][a-z0-9-]{0,40}$/.test(decision)) throw new Error(`invalid decision name: ${decision}`);
+  return CAPTURE_SUFFIXES.map((suffix) => join(captureDirectory(root), `${decision}${suffix}.jsonl`));
+}
+
 // Opt-in: nothing is written unless JAO_CAPTURE=1 (set in .env, which serve and the skills load).
 export function captureEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.JAO_CAPTURE === "1";
