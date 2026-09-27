@@ -6,7 +6,7 @@
 2. 루트에서 `npm ci`, `npm run check`, `npm test`, `npm run test:compat`를 통과시킨다.
 3. 변경한 패키지를 `npm run pack:cli`, `npm run pack:decisions`, `npm run pack:eval`로 `artifacts/`에 만든다. 실제 패키지의 독립 설치·타입·CLI·Workers·Deno 호환성을 검증한다.
 4. 새 clone에서 README의 명령을 그대로 실행해 초기 설정·판단 예제·JSON 출력·스킬 설치를 확인한다. `npm run connect -- <테스트 프로젝트>`로 연결한 뒤, manifest·lockfile·vendor·프로젝트 스킬만 새 폴더로 복사해 `npm ci`와 `npm run jev -- demo --offline`이 동작하는지도 확인한다. 키 없는 검증에는 모의 예제를 사용한다.
-5. 검증한 커밋에 릴리스 태그를 만들고 패키지 파일을 GitHub 릴리스에 올린다. CLI 파일은 `jev-decision-kit.tgz`라는 asset 이름으로 보관하고 해당 CLI 릴리스를 latest로 지정한다.
+5. 검증한 커밋에 릴리스 태그를 만들고 패키지 파일을 GitHub 릴리스에 올린다. CLI 파일은 `jev-utils.tgz`라는 asset 이름으로 보관하고 해당 CLI 릴리스를 latest로 지정한다.
 
 라이브러리 `@starhn87/jev-decisions`·`@starhn87/jev-eval`은 버전으로 고정한 릴리스 파일로 설치한다. 패키지 파일 목록으로 `.env`, 설치 상태, 로컬 기록, 테스트를 제외한다. 유틸리티 설치 시 데스크톱 설정을 변경하는 install/postinstall hook은 없다.
 

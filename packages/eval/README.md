@@ -3,11 +3,14 @@
 Node 22+ evaluation and reporting utilities. Collection, labels, thresholds and actions belong to the caller. There are no runtime dependencies or automatic provider calls.
 
 ```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.1/starhn87-jev-eval-0.1.1.tgz
+git clone https://github.com/starhn87/jev-utils.git
+mkdir -p vendor
+cp jev-utils/artifacts/starhn87-jev-eval-0.1.2.tgz vendor/
+npm install ./vendor/starhn87-jev-eval-0.1.2.tgz
 npx jev-eval observations.jsonl
 ```
 
-This installs the packaged GitHub release through npm. npm registry publication is pending. `observations.jsonl` contains one JSON object per line. For a first run, save this single line in that file:
+Run these commands from your application folder to install the prepared package. Commit the vendor archive, manifest and lockfile. npm registry publication is pending. `observations.jsonl` contains one JSON object per line. For a first run, save this single line in that file:
 
 ```json
 {"caseId":"case-1","groupId":"scenario-1","status":"deferred","correct":null,"meta":{"durationMs":120,"inputTokens":null,"outputTokens":20}}

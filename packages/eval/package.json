@@ -1,16 +1,16 @@
 {
   "name": "@starhn87/jev-eval",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Evaluate Jev decisions and publish consumer-owned weekly observation issues",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/starhn87/jev-decision-kit.git",
+    "url": "git+https://github.com/starhn87/jev-utils.git",
     "directory": "packages/eval"
   },
-  "homepage": "https://github.com/starhn87/jev-decision-kit/tree/main/packages/eval#readme",
-  "bugs": "https://github.com/starhn87/jev-decision-kit/issues",
+  "homepage": "https://github.com/starhn87/jev-utils/tree/main/packages/eval#readme",
+  "bugs": "https://github.com/starhn87/jev-utils/issues",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

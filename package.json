@@ -1,10 +1,10 @@
 {
-  "name": "jev-decision-kit",
-  "version": "0.7.0",
+  "name": "jev-utils",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "bin": {
-    "jev-decision-kit": "packages/cli/dist/cli.mjs"
+    "jev-utils": "packages/cli/dist/cli.mjs"
   },
   "scripts": {
     "build": "npm run build --workspace @starhn87/jev-decisions && node scripts/build-cli.mjs",
@@ -20,7 +20,7 @@
     "pack:eval": "npm pack --workspace @starhn87/jev-eval --pack-destination artifacts",
     "test:compat": "node scripts/test-compat.mjs",
     "report:shadow": "node scripts/report-weekly-shadow.mjs",
-    "pack:cli": "npm pack --workspace @starhn87/jev-decision-kit --pack-destination artifacts"
+    "pack:cli": "npm pack --workspace @starhn87/jev-utils --pack-destination artifacts"
   },
   "engines": {
     "node": ">=22"

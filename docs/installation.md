@@ -1,6 +1,6 @@
 # 판단 스킬 설치
 
-일반 CLI 설치·키 설정·실행은 [루트 README](../README.md)를 따릅니다.
+일반 CLI 설치·키 설정·실행은 [CLI 안내](cli.md)를 따릅니다. API 연동과 질문 설계에는 [TypeSafe 공식 스킬](https://github.com/typesafe-ai/skills)을 사용합니다. 이 문서는 Jev Utils CLI를 호출하는 보조 스킬의 설치 안내입니다.
 
 ## 스킬로 할 수 있는 작업
 
@@ -14,13 +14,13 @@ Jev 판단을 호출하면 API 사용 비용과 처리 시간이 들며, 비용 
 
 `connect`는 패키지·CLI·프로젝트 스킬의 설치만 처리합니다. 앱의 실제 요청 처리, 서버 API 키, Shadow 기록, 주간 이슈·PR와 배포는 별도로 구현합니다. npm 프로젝트만 지원하며 기존의 다른 Jev 설치 방식을 이전하지 않습니다. [변경 파일과 서버 적용 순서](integration.md).
 
-clone한 Jev Decision Kit 폴더에서:
+clone한 Jev Utils 폴더에서:
 
 ```sh
 npm run connect -- ../my-app
 ```
 
-공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 `.agents/skills/jev-decision-kit/SKILL.md`와 `.claude/skills/jev-decision-kit/SKILL.md`를 생성합니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
+공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 `.agents/skills/jev-utils/SKILL.md`와 `.claude/skills/jev-utils/SKILL.md`를 생성합니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
 
 프로젝트 스킬과 개인 스킬을 중복 설치할 필요는 없습니다. 여러 저장소에서 공통으로 사용할 개인 스킬이 필요할 때만 아래의 `agent install` 방식을 선택하세요.
 
@@ -38,7 +38,7 @@ npm run connect -- ../my-app
 
 > 기존 판단 질문을 실행하고 정답과 비교해줘. 오답·실패·판단보류를 구분해서 정리해줘.
 
-자동으로 선택되지 않았다면 “jev-decision-kit 스킬을 사용해줘”라고 추가로 지정할 수 있습니다. 연결한 프로젝트에서는 `npm run jev`를, 개인 스킬에서는 기록한 Node·CLI 경로를 사용합니다. 질문·관측 파일을 읽을 때는 작업 중인 프로젝트의 폴더를 기준으로 합니다. `run`은 프로젝트에서 정의한 질문을 실행하고, `eval`은 이미 만들어진 관측 데이터를 집계합니다. 평가 파일 생성과 정답 라벨 연결은 요청한 작업에 포함해야 합니다.
+자동으로 선택되지 않았다면 “jev-utils 스킬을 사용해줘”라고 추가로 지정할 수 있습니다. 연결한 프로젝트에서는 `npm run jev`를, 개인 스킬에서는 기록한 Node·CLI 경로를 사용합니다. 질문·관측 파일을 읽을 때는 작업 중인 프로젝트의 폴더를 기준으로 합니다. `run`은 프로젝트에서 정의한 질문을 실행하고, `eval`은 이미 만들어진 관측 데이터를 집계합니다. 평가 파일 생성과 정답 라벨 연결은 요청한 작업에 포함해야 합니다.
 
 ## 개인 스킬 설치: Codex·Claude Code
 
@@ -51,30 +51,30 @@ npm run cli -- agent uninstall
 
 대상을 생략하면 두 앱의 스킬을 설치하거나 해제합니다. 스킬 설치에는 API 키나 앱 CLI 실행이 필요하지 않습니다. 실제 판단을 호출하기 전에 `npm run setup`으로 키를 설정합니다.
 
-스킬 본문은 `~/.jev-decision-kit/skills/jev-decision-kit/SKILL.md`에 두고 다음 경로에서 연결합니다.
+스킬 본문은 `~/.jev-utils/skills/jev-utils/SKILL.md`에 두고 다음 경로에서 연결합니다.
 
-- Codex: `~/.agents/skills/jev-decision-kit`
-- Claude Code: `~/.claude/skills/jev-decision-kit`
+- Codex: `~/.agents/skills/jev-utils`
+- Claude Code: `~/.claude/skills/jev-utils`
 
-설치 기록은 `~/.jev-decision-kit/skills.json`입니다. `agent doctor`는 연결 상태를 읽습니다. 설치 대상에 다른 파일이 있거나 관리하던 스킬이 수정된 경우 변경을 중단합니다. `agent uninstall codex` 또는 `claude`로 한쪽만 제거할 수 있습니다. 키 파일은 유지합니다.
+설치 기록은 `~/.jev-utils/skills.json`입니다. `agent doctor`는 연결 상태를 읽습니다. 설치 대상에 다른 파일이 있거나 관리하던 스킬이 수정된 경우 변경을 중단합니다. `agent uninstall codex` 또는 `claude`로 한쪽만 제거할 수 있습니다. 키 파일은 유지합니다.
 
 스킬 본문에는 설치에 사용한 Node와 로컬 CLI의 절대 경로도 기록합니다. 다른 프로젝트에서 호출할 때 그 프로젝트의 작업 폴더를 유지합니다. 저장소를 이동하거나 업데이트하면 설치 명령을 다시 실행해 경로와 스킬을 갱신합니다.
 
-새 세션에서 `jev-decision-kit` 스킬을 사용하면 정의한 질문을 CLI로 실행하고 결과를 확인할 수 있습니다. 에이전트 모델·추론 수준 설정과 백그라운드 서비스는 이 설치의 범위가 아닙니다.
+새 세션에서 `jev-utils` 스킬을 사용하면 정의한 질문을 CLI로 실행하고 결과를 확인할 수 있습니다. 에이전트 모델·추론 수준 설정과 백그라운드 서비스는 이 설치의 범위가 아닙니다.
 
 ## Claude Code 마켓플레이스
 
 직접 스킬 설치 대신 마켓플레이스를 이용할 수도 있습니다. 동일한 스킬을 중복 설치하지 않도록 한 방식을 선택합니다.
 
 ```sh
-claude plugin marketplace add starhn87/jev-decision-kit
-claude plugin install jev-decision-kit@jev-decision-kit
+claude plugin marketplace add starhn87/jev-utils
+claude plugin install jev-utils@jev-utils
 ```
 
-플러그인은 판단 CLI 호출 스킬을 포함합니다. 사용 전 루트 README의 CLI 설치와 키 설정이 필요합니다. 제거는 다음 명령으로 진행합니다.
+플러그인은 판단 CLI 호출 스킬을 포함합니다. 사용 전 CLI 안내의 설치와 키 설정이 필요합니다. 제거는 다음 명령으로 진행합니다.
 
 ```sh
-claude plugin uninstall jev-decision-kit@jev-decision-kit
+claude plugin uninstall jev-utils@jev-utils
 ```
 
 저장소 개발 시에는 `claude plugin validate .`와 `claude plugin validate .claude-plugin/marketplace.json`으로 메타데이터를 검증합니다.

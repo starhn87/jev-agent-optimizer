@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { reportWindow, summarizeAudits, renderWeekly, mergeGenerated, REVIEW_CHECKLIST } from '../packages/reporting/weekly.mjs';
 
-const repo = 'starhn87/jev-decision-kit';
+const repo = 'starhn87/jev-utils';
 const args = process.argv.slice(2);
 const envAt = args.indexOf('--blog-env');
 if (envAt >= 0) process.loadEnvFile(args[envAt + 1]); // 명시한 관리용 파일만 읽는다.

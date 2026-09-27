@@ -1,13 +1,15 @@
 ---
-name: jev-decision-kit
-description: Test small choice-based classifications and relevance checks, evaluate labelled decision results, or integrate Jev decisions into a project using the Jev Decision Kit CLI and library. Use for trying explicit questions and labels on samples or reviewing existing decision observations.
+name: jev-utils
+description: Run sample questions with the local Jev Utils CLI or summarize existing labelled observation files. Use for trying explicit questions and labels on bounded samples, inspecting CLI results, or reviewing existing decision observations. For TypeSafe API integration and question design, use the official typesafe-ai skill.
 ---
 
-# Jev Decision Kit
+# Jev Utils
 
-Use the CLI to execute a defined Jev question and inspect its validated result. Start from the project's existing questions, labels and application policy. This skill can be selected from the task context; the user does not need to name it. Use it for bounded decision experiments and integration, rather than general code work or every conversation message.
+Use the official `typesafe-ai` skill for API integration, question design and TypeSafe architecture. This skill covers the local CLI and observation-file evaluation. It adds no provider, model-routing or background service configuration.
 
-If the project has a `jev` npm script calling `jev-decision-kit`, run `npm run --silent jev -- <command>` from that project's root. For example, `npm run --silent jev -- eval observations.jsonl` reads the project's own data. Prefer this portable project command when available.
+Use the CLI to execute a defined Jev question and inspect its validated result. Start from the project's existing questions, labels and application policy. This skill can be selected from the task context; the user does not need to name it. Use it for bounded CLI experiments and reviewing recorded results.
+
+If the project has a `jev` npm script calling `jev-utils`, run `npm run --silent jev -- <command>` from that project's root. For example, `npm run --silent jev -- eval observations.jsonl` reads the project's own data. Prefer this portable project command when available.
 
 Otherwise use the local clone. In its root, invoke commands with `npm run --silent cli -- <command>`. An installed skill includes `nodeFile` and `cliFile` below: use those absolute paths with argument arrays to call the CLI from the consuming project's working directory. This preserves relative paths to that project's question and observation files. For the repository or marketplace skill, resolve the existing clone's `packages/cli/dist/cli.mjs` before invoking it.
 

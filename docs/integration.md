@@ -6,26 +6,26 @@
 
 지원 대상은 npm을 쓰는 독립 프로젝트 또는 워크스페이스 루트입니다. pnpm·yarn·bun, 워크스페이스 내부 패키지, 기존의 다른 Jev 설치 방식은 자동으로 이전하지 않습니다. Edge 함수가 앱 루트와 별도의 의존성을 쓰면 해당 실행 환경에 맞는 수동 설치가 필요합니다.
 
-Jev Decision Kit를 clone한 폴더에서 실행합니다. 다음과 같이 두 저장소가 같은 상위 폴더에 있다고 가정합니다.
+Jev Utils를 clone한 폴더에서 실행합니다. 다음과 같이 두 저장소가 같은 상위 폴더에 있다고 가정합니다.
 
 ```text
 projects/
-  jev-decision-kit/
+  jev-utils/
   my-app/
 ```
 
-Jev Decision Kit 폴더에서:
+Jev Utils 폴더에서:
 
 ```sh
 npm run connect -- ../my-app
 ```
 
-명령이 저장소에 준비된 패키지로 설치를 처리합니다. Jev Decision Kit 폴더에서 `npm ci`나 빌드를 먼저 할 필요가 없습니다. 대상 폴더의 변경 내역은 다음과 같습니다.
+명령이 저장소에 준비된 패키지로 설치를 처리합니다. Jev Utils 폴더에서 `npm ci`나 빌드를 먼저 할 필요가 없습니다. 대상 폴더의 변경 내역은 다음과 같습니다.
 
-- `package.json`: `@typesafe-ai/sdk@0.6.0`과 `@starhn87/jev-decisions` 운영 의존성, `@starhn87/jev-decision-kit` 개발 의존성, `jev` npm 명령을 추가합니다.
+- `package.json`: `@typesafe-ai/sdk@0.6.0`과 `@starhn87/jev-decisions` 운영 의존성, `@starhn87/jev-utils` 개발 의존성, `jev` npm 명령을 추가합니다.
 - `package-lock.json`·`node_modules/`: `npm install`로 의존성을 설치하고 lockfile을 갱신합니다. 프로젝트의 install/postinstall 스크립트는 실행하지 않습니다.
-- `vendor/jev-decision-kit/`: 두 패키지 파일과 소유 파일의 해시를 기록한 `connection.json`을 보관합니다.
-- `.agents/skills/jev-decision-kit/SKILL.md`·`.claude/skills/jev-decision-kit/SKILL.md`: 두 에이전트의 프로젝트 스킬을 생성합니다.
+- `vendor/jev-utils/`: 두 패키지 파일과 소유 파일의 해시를 기록한 `connection.json`을 보관합니다.
+- `.agents/skills/jev-utils/SKILL.md`·`.claude/skills/jev-utils/SKILL.md`: 두 에이전트의 프로젝트 스킬을 생성합니다.
 
 **여기까지는 개발 도구 설치입니다.** 앱 코드를 수정하거나 서버 API 키를 설정하지 않습니다. API 호출은 이후 CLI의 `decide`·온라인 `demo`·`run`을 실행하거나 앱에서 라이브러리를 호출할 때 발생합니다. Shadow 기록 수집, 주간 이슈·PR, CI 워크플로와 배포는 자동으로 생성하지 않습니다.
 
@@ -80,26 +80,26 @@ const result = toObservation(questions, outcome, {
 
 ## CI와 배포에 포함하기
 
-`connect`는 빌드된 라이브러리와 CLI를 버전이 고정된 npm 패키지 파일로 `vendor/jev-decision-kit/`에 보관합니다. 다음 파일을 앱 저장소에 함께 커밋하면 CI와 다른 개발 환경에서 평소처럼 `npm ci`로 설치합니다.
+`connect`는 빌드된 라이브러리와 CLI를 버전이 고정된 npm 패키지 파일로 `vendor/jev-utils/`에 보관합니다. 다음 파일을 앱 저장소에 함께 커밋하면 CI와 다른 개발 환경에서 평소처럼 `npm ci`로 설치합니다.
 
 - `package.json`과 `package-lock.json`
-- `vendor/jev-decision-kit/` 전체
-- `.agents/skills/jev-decision-kit/`와 `.claude/skills/jev-decision-kit/`
+- `vendor/jev-utils/` 전체
+- `.agents/skills/jev-utils/`와 `.claude/skills/jev-utils/`
 
 외부 clone이나 전역 CLI가 필요하지 않습니다. 운영 환경에서 `npm ci --omit=dev`로 설치하면 공식 SDK와 응답 유틸리티를 포함하고 CLI는 제외합니다. 서버의 API 키는 앱의 비밀 설정으로 별도 전달합니다.
 
-업데이트는 Jev Decision Kit clone을 갱신한 다음 `npm run connect -- ../my-app`을 다시 실행하고, 앱의 질문 사례를 평가합니다. 변경된 연결 파일을 커밋해 반영합니다.
+업데이트는 Jev Utils clone을 갱신한 다음 `npm run connect -- ../my-app`을 다시 실행하고, 앱의 질문 사례를 평가합니다. 변경된 연결 파일을 커밋해 반영합니다.
 
 ## 설치 명령을 쓰지 않는 경우
 
 다른 패키지 관리자를 사용하거나 유틸리티만 필요하다면 clone에 포함된 버전이 고정된 패키지 파일을 프로젝트 의존성으로 직접 설치할 수 있습니다. 로컬 패키지 파일을 프로젝트에 보관하려면:
 
-빌드된 현재 응답 유틸리티 버전 `0.2.0`는 Jev Decision Kit의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
+빌드된 현재 응답 유틸리티 버전 `0.2.1`는 Jev Utils의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
 
 ```sh
 mkdir -p vendor
-cp ../jev-decision-kit/artifacts/starhn87-jev-decisions-0.2.0.tgz vendor/
-npm install @typesafe-ai/sdk@0.6.0 ./vendor/starhn87-jev-decisions-0.2.0.tgz
+cp ../jev-utils/artifacts/starhn87-jev-decisions-0.2.1.tgz vendor/
+npm install @typesafe-ai/sdk@0.6.0 ./vendor/starhn87-jev-decisions-0.2.1.tgz
 ```
 
 이 파일은 빌드된 검증·관측 유틸리티·타입·라이선스를 담은 npm 패키지입니다. 사용하는 패키지 관리자로 설치하고, 파일과 manifest·lockfile을 함께 커밋합니다. 이 수동 방식은 CLI나 프로젝트 스킬을 생성하지 않습니다.

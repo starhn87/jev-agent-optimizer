@@ -5,10 +5,10 @@ import { parseEnv } from 'node:util';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 
-export const stateDir = () => join(homedir(), '.jev-decision-kit');
+export const stateDir = () => join(homedir(), '.jev-utils');
 export const keyFile = () => join(stateDir(), '.env');
 export const defaultModel = 'jev-1.13.0';
-export const cliCommand = command => `${process.env.npm_lifecycle_event === 'jev' ? 'npm run jev --' : process.env.npm_lifecycle_event === 'cli' ? 'npm run cli --' : 'jev-decision-kit'} ${command}`;
+export const cliCommand = command => `${process.env.npm_lifecycle_event === 'jev' ? 'npm run jev --' : process.env.npm_lifecycle_event === 'cli' ? 'npm run cli --' : 'jev-utils'} ${command}`;
 export function readEnv(path) {
   try { return parseEnv(readFileSync(path, 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return {}; throw new Error('설정 파일을 읽을 수 없습니다. 파일 권한을 확인하세요.'); }
@@ -16,7 +16,7 @@ export function readEnv(path) {
 export function configuration() {
   const saved = readEnv(keyFile());
   return { apiKey: process.env.TYPESAFE_API_KEY || saved.TYPESAFE_API_KEY || '',
-    model: process.env.JEV_KIT_MODEL || saved.JEV_KIT_MODEL || defaultModel };
+    model: process.env.JEV_UTILS_MODEL || saved.JEV_UTILS_MODEL || defaultModel };
 }
 export function privateWrite(path, contents) {
   const tmp = `${path}.${process.pid}.tmp`;
@@ -50,7 +50,7 @@ export async function initialize(args) {
   if (!key || key.length > 4096 || /[\s\x00-\x1f]/u.test(key)) throw new Error('비어 있지 않은 API 키를 입력하세요.');
   mkdirSync(stateDir(), { recursive: true, mode: 0o700 });
   const previous = existsSync(keyFile()) ? readFileSync(keyFile(), 'utf8') : '';
-  const remaining = previous.split('\n').filter(line => !/^\s*(?:export\s+)?(?:TYPESAFE_API_KEY|JEV_KIT_MODEL)\s*=/.test(line)).join('\n').trim();
-  privateWrite(keyFile(), `${remaining ? remaining + '\n' : ''}TYPESAFE_API_KEY=${JSON.stringify(key)}\nJEV_KIT_MODEL=${defaultModel}\n`);
+  const remaining = previous.split('\n').filter(line => !/^\s*(?:export\s+)?(?:TYPESAFE_API_KEY|JEV_UTILS_MODEL)\s*=/.test(line)).join('\n').trim();
+  privateWrite(keyFile(), `${remaining ? remaining + '\n' : ''}TYPESAFE_API_KEY=${JSON.stringify(key)}\nJEV_UTILS_MODEL=${defaultModel}\n`);
   console.log(`설정 완료. 다음 명령: ${['setup', 'cli'].includes(process.env.npm_lifecycle_event) ? 'npm run demo' : cliCommand('demo')}`);
 }

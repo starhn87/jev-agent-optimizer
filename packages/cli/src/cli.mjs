@@ -6,7 +6,7 @@ import { summarize } from '../../eval/index.mjs';
 import { cliCommand, configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
 
-const help = `Jev Decision Kit — 설정, 판단 실행, 평가\n
+const help = `Jev Utils — 설정, 판단 실행, 평가\n
   연결한 프로젝트: npm run jev -- <하위 명령>
   clone한 저장소: npm run cli -- <하위 명령>\n
   ${cliCommand('init')}                    API 키 설정 (화면에 표시하지 않음)
