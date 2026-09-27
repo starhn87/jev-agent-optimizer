@@ -12,9 +12,10 @@
     "doctor": "npm run build && node dist/cli.js doctor",
     "disable": "npm run build && node dist/cli.js uninstall",
     "check": "npm run build --workspace @starhn87/jev-decisions && tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test tests/*.test.mjs packages/eval/*.test.mjs dist/*.test.js claude-mod/tests/*.test.js",
+    "test": "npm run build && node --test tests/*.test.mjs packages/eval/*.test.mjs packages/reporting/*.test.mjs dist/*.test.js claude-mod/tests/*.test.js",
     "pack:decisions": "npm run build --workspace @starhn87/jev-decisions && npm pack --workspace @starhn87/jev-decisions --pack-destination artifacts",
-    "test:compat": "node scripts/test-compat.mjs"
+    "test:compat": "node scripts/test-compat.mjs",
+    "report:shadow": "node scripts/report-weekly-shadow.mjs"
   },
   "engines": {
     "node": ">=22"

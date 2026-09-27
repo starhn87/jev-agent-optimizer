@@ -1,0 +1,20 @@
+# 주간 shadow 추적
+
+2026-09-27 활성화 기준:
+
+- sw-blog production은 `JEV_CHAT_MODE=shadow`. 실제 채팅 중 Jev에 전달할 수 있는 최근 6개·총 6,000자 이하의 요청을 관측한다. 기존 채팅 자료 선택과 답변은 유지한다.
+- moto-kr은 저장소 변수 `JEV_MAPPING_MODE=shadow`. 월요일 KENCIS 수집에서 신규/변경 후보와 근거 기반 제안이 있을 때 별도 감사 잡을 실행한다. 감사 성공 여부는 기존 게시 단계의 조건이 아니다.
+- Motomap은 운영 중단 정책에 따라 off 상태를 유지한다. 소스 연결을 푸시했지만 서비스·심사를 재개하지 않았다.
+
+블로그는 기존 D1에 판단 선택지, 질문·모델 버전, 지연 시간, 오류 종류, 알려진 토큰 수만 저장한다. 요청 원문·IP·방문자 ID·공급자 request ID는 저장하지 않는다. 집계 API는 기존 관리자 인증을 요구하고 `private, no-store`로 응답한다. 주간 수집 시 90일 이전 관측을 정리한다. moto-kr 감사 artifact는 30일 보관한다.
+
+공통 저장소 `starhn87/jev-agent-optimizer`에 주차별 이슈 하나를 만들고, 같은 주차 재실행은 생성 영역만 갱신한다. 사람이 적은 체크리스트·메모·코멘트는 보존한다. 이슈에 원문·키·연구 자료를 게시하지 않는다. 수집 실패·누락·미상 토큰은 별도로 표시하며 0건 성공으로 해석하지 않는다. 관측 수·분류 분포·실패율·p50/p95·알려진 토큰 합계·근거 실행 링크를 제공한다. 사람이 검토한 정답 사례와 비용 비교가 생기기 전에는 정확도나 절감 효과를 주장하지 않는다.
+
+```sh
+node scripts/report-weekly-shadow.mjs --blog-env /absolute/path/to/sw-blog/.env.local
+node scripts/report-weekly-shadow.mjs --blog-env /absolute/path/to/sw-blog/.env.local --publish
+```
+
+Node 22+, GitHub CLI 로그인, 기존 블로그 관리자 암호가 필요하다. 관리용 환경 파일은 명시적으로 지정할 때만 읽는다. 초안과 구조화 집계는 Git에서 제외된 `.local/weekly-shadow/`에 남긴다. 수집기는 Jev·답변 LLM을 호출하지 않으며 매핑 반영이나 enforce 전환을 하지 않는다.
+
+Codex의 이 대화에 연결된 자동화가 매주 월요일 21:00(한국 시간)에 위 수집기를 실행한다. 이 시간은 KENCIS의 마지막 복구 슬롯 19:17 이후다. 로컬 Codex 호스트에서 실행되므로 호스트가 사용 가능한 시점에 수행되며, GitHub 서버의 cron 실행을 보장하는 방식은 아니다. 수집기가 실패하면 자동화가 실패를 알리고, 자료 수집 공백은 주간 이슈에 표시한다.
