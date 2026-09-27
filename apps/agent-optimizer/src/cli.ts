@@ -122,7 +122,7 @@ async function keychainClassifier(spec: { service: string; account: string } | n
   return (query) => askJev(query, { apiKey, onExchange });
 }
 
-// A local Kev needs no key; a hosted one reads its bearer from JAO_SHADOW_CLASSIFIER_KEY.
+// A local Kev needs no key; a hosted one reads its bearer from JEV_KIT_SHADOW_CLASSIFIER_KEY.
 // The TypeSafe key is never sent to this endpoint.
 function shadowClassifier(parsed: Parsed): ProxyOptions["shadowClassifier"] {
   if (!parsed.shadowClassifierEndpoint || parsed.settings.mode !== "auto") return undefined;
@@ -130,7 +130,7 @@ function shadowClassifier(parsed: Parsed): ProxyOptions["shadowClassifier"] {
   const model = parsed.shadowClassifierModel ?? "kev-latest";
   const onExchange = captureSink("route");
   return { name: model, classify: (query) => askJev(query, { endpoint, model, onExchange,
-    apiKey: process.env.JAO_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
+    apiKey: process.env.JEV_KIT_SHADOW_CLASSIFIER_KEY || process.env.JAO_SHADOW_CLASSIFIER_KEY || process.env.AMR_SHADOW_CLASSIFIER_KEY || "local", timeoutMs: 8000 }) };
 }
 
 async function runCodex(parsed: Parsed): Promise<void> {
@@ -144,9 +144,9 @@ async function runCodex(parsed: Parsed): Promise<void> {
     onShadow: (event) => writeMetric(event, parsed.metricsFile), shadowClassifier: shadowClassifier(parsed) });
   const baseUrl = `http://127.0.0.1:${proxy.port}`;
   if (parsed.settings.mode === "auto" && !spec && !process.env.TYPESAFE_API_KEY && !process.env.JEV_API_KEY) {
-    process.stderr.write("[jao] No TypeSafe key; Auto will retain the current model.\n");
+    process.stderr.write("[jev-decision-kit] No TypeSafe key; Auto will retain the current model.\n");
   }
-  process.stderr.write(`[jao] Codex ${parsed.settings.mode} mode · local proxy ${baseUrl}\n`);
+  process.stderr.write(`[jev-decision-kit] Codex ${parsed.settings.mode} mode · local proxy ${baseUrl}\n`);
   const args = codexArgs(baseUrl, parsed.settings.baselineModel, parsed.remaining);
   const exitCode = await new Promise<number>((resolve) => {
     const child = spawn(command, args, { stdio: "inherit", env: codexChildEnv(process.env) });
@@ -165,7 +165,7 @@ async function runServer(parsed: Parsed): Promise<void> {
     statusFile: parsed.metricsFile,
     classify, onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile),
     onShadow: (event) => writeMetric(event, parsed.metricsFile), shadowClassifier: shadowClassifier(parsed) });
-  process.stdout.write(`Jev Agent Optimizer listening on http://127.0.0.1:${proxy.port}\n`);
+  process.stdout.write(`Jev Decision Kit listening on http://127.0.0.1:${proxy.port}\n`);
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
@@ -204,28 +204,28 @@ async function runClaudeShadowHook(parsed: Parsed): Promise<void> {
 }
 
 function help(): void {
-  process.stdout.write(`Jev Agent Optimizer\n\n` +
+  process.stdout.write(`Jev Decision Kit\n\n` +
     `Jev key: TYPESAFE_API_KEY in the process environment.\n` +
     `         For a local .env file, run: node --env-file=.env dist/cli.js ...\n` +
     `         macOS login Keychain is optional via the flags below.\n\n` +
-    `  jao install [both|codex|claude]  (Codex background setup: macOS)\n` +
-    `  jao doctor\n` +
-    `  jao uninstall [both|codex|claude]\n\n` +
-    `  jao codex [router options] -- [codex arguments]\n` +
-    `  jao serve [router options]  (for Codex desktop; default port 8765; /status with --metrics)\n` +
-    `  jao claude-shadow-hook --metrics FILE [--keychain-service NAME --keychain-account USER]\n` +
-    `  jao report FILE [--prices PRICES.json] [--since ISO-TIME]  (agent cost and savings estimate from your price table)\n\n` +
-    `  jao compare FILE  (paired fixed and auto results; no model calls)\n` +
-    `  jao compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE]  (prefill compare input from two metrics logs)\n` +
-    `  jao search FILE|- [--metrics FILE]  (search-result decision; up to two paid Jev calls)\n` +
-    `  jao search-report FILE\n` +
-    `  jao search-evaluate FILE  (human-labelled needed-source recall)\n` +
-    `  jao memory-filter FILE|- [--metrics FILE]  (passage selection; up to one paid Jev call)\n` +
-    `  jao memory-report FILE\n` +
-    `  jao memory-evaluate FILE  (human-labelled needed-passage recall)\n` +
-    `  jao label-queue DECISION [--limit N]  (review file from .local/capture/, needs JAO_CAPTURE=1 earlier)\n` +
-    `  jao label-apply REVIEWED-QUEUE.json  (merge filled labels into .local/labels/DECISION.jsonl)\n` +
-    `  jao export-training DECISION --out PREFIX [--holdout-percent 15]  (Kev-format training/holdout JSONL)\n` +
+    `  jev-decision-kit install [both|codex|claude]  (Codex background setup: macOS)\n` +
+    `  jev-decision-kit doctor\n` +
+    `  jev-decision-kit uninstall [both|codex|claude]\n\n` +
+    `  jev-decision-kit codex [router options] -- [codex arguments]\n` +
+    `  jev-decision-kit serve [router options]  (for Codex desktop; default port 8765; /status with --metrics)\n` +
+    `  jev-decision-kit claude-shadow-hook --metrics FILE [--keychain-service NAME --keychain-account USER]\n` +
+    `  jev-decision-kit report FILE [--prices PRICES.json] [--since ISO-TIME]  (agent cost and savings estimate from your price table)\n\n` +
+    `  jev-decision-kit compare FILE  (paired fixed and auto results; no model calls)\n` +
+    `  jev-decision-kit compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE]  (prefill compare input from two metrics logs)\n` +
+    `  jev-decision-kit search FILE|- [--metrics FILE]  (search-result decision; up to two paid Jev calls)\n` +
+    `  jev-decision-kit search-report FILE\n` +
+    `  jev-decision-kit search-evaluate FILE  (human-labelled needed-source recall)\n` +
+    `  jev-decision-kit memory-filter FILE|- [--metrics FILE]  (passage selection; up to one paid Jev call)\n` +
+    `  jev-decision-kit memory-report FILE\n` +
+    `  jev-decision-kit memory-evaluate FILE  (human-labelled needed-passage recall)\n` +
+    `  jev-decision-kit label-queue DECISION [--limit N]  (review file from .local/capture/, needs JEV_KIT_CAPTURE=1 earlier)\n` +
+    `  jev-decision-kit label-apply REVIEWED-QUEUE.json  (merge filled labels into .local/labels/DECISION.jsonl)\n` +
+    `  jev-decision-kit export-training DECISION --out PREFIX [--holdout-percent 15]  (Kev-format training/holdout JSONL)\n` +
     `Router options: --mode pass|force|shadow|auto, --force-model ID,\n` +
     `  --baseline-model ID, --fast-model ID, --balanced-model ID,\n` +
     `  --strong-model ID, --downgrade-confidence 0..1, --shadow-fast-confidence 0..1 (log only),\n` +
@@ -240,7 +240,7 @@ async function main(): Promise<void> {
   if (command === "install" || command === "uninstall" || command === "doctor") {
     const client = args[0] ?? "both";
     if ((command === "doctor" && args.length) || args.length > 1 || !["both", "codex", "claude"].includes(client)) {
-      throw new Error("사용법: jao install|uninstall [both|codex|claude], jao doctor");
+      throw new Error("사용법: jev-decision-kit install|uninstall [both|codex|claude], jev-decision-kit doctor");
     }
     const context = defaultInstallContext();
     process.stdout.write(command === "doctor" ? await doctor(context)
@@ -248,7 +248,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "report") {
-    const usage = "usage: jao report FILE [--prices PRICES.json] [--since ISO-TIME]";
+    const usage = "usage: jev-decision-kit report FILE [--prices PRICES.json] [--since ISO-TIME]";
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {
       const flag = args[index], value = args[index + 1];
@@ -259,7 +259,7 @@ async function main(): Promise<void> {
     const since = options.has("--since") ? Date.parse(options.get("--since")!) : undefined;
     if (since !== undefined && !Number.isFinite(since)) throw new Error("--since must be a date or ISO time, e.g. 2026-09-25T20:49:00+09:00");
     const summary = readMetricsFile(args[0], options.has("--prices") ? readPriceTable(options.get("--prices")!) : undefined, since);
-    for (const warning of summary.warnings) process.stderr.write(`[jao] warning: ${warning}\n`);
+    for (const warning of summary.warnings) process.stderr.write(`[jev-decision-kit] warning: ${warning}\n`);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     return;
   }
@@ -274,7 +274,7 @@ async function main(): Promise<void> {
     for (let index = 0; index < rest.length; index += 2) {
       const flag = rest[index], value = rest[index + 1];
       if (!flag || !["--prices", "--fixed-policy", "--auto-policy"].includes(flag) || !value || options.has(flag)) {
-        throw new Error("usage: jao compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE] [--fixed-policy NAME] [--auto-policy NAME]");
+        throw new Error("usage: jev-decision-kit compare-draft FIXED.jsonl AUTO.jsonl [--prices FILE] [--fixed-policy NAME] [--auto-policy NAME]");
       }
       options.set(flag, value);
     }
@@ -307,7 +307,7 @@ async function main(): Promise<void> {
     const result = await searchGate(input, ask);
     if (options.has("--metrics")) {
       try { writeSearchMetric(options.get("--metrics")!, input.results.length, result); }
-      catch { process.stderr.write("[jao] search metrics sink unavailable\n"); }
+      catch { process.stderr.write("[jev-decision-kit] search metrics sink unavailable\n"); }
     }
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
@@ -344,7 +344,7 @@ async function main(): Promise<void> {
     const result = await filterMemory(input, ask);
     if (options.has("--metrics")) {
       try { writeMemoryMetric(options.get("--metrics")!, input.candidates.length, result); }
-      catch { process.stderr.write("[jao] memory metrics sink unavailable\n"); }
+      catch { process.stderr.write("[jev-decision-kit] memory metrics sink unavailable\n"); }
     }
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
@@ -360,7 +360,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "label-queue") {
-    const usage = "usage: jao label-queue DECISION [--limit N]";
+    const usage = "usage: jev-decision-kit label-queue DECISION [--limit N]";
     const decision = args[0];
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {
@@ -375,7 +375,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "label-apply") {
-    if (args.length !== 1) throw new Error("usage: jao label-apply REVIEWED-QUEUE.json");
+    if (args.length !== 1) throw new Error("usage: jev-decision-kit label-apply REVIEWED-QUEUE.json");
     const size = statSync(args[0]!).size;
     if (size > 16 * 1024 * 1024) throw new Error("label queue file too large");
     const items = JSON.parse(readFileSync(args[0]!, "utf8")) as unknown;
@@ -387,7 +387,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "export-training") {
-    const usage = "usage: jao export-training DECISION --out PREFIX [--holdout-percent 0-100]";
+    const usage = "usage: jev-decision-kit export-training DECISION --out PREFIX [--holdout-percent 0-100]";
     const decision = args[0];
     const options = new Map<string, string>();
     for (let index = 1; index < args.length; index += 2) {
@@ -434,6 +434,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  process.stderr.write(`[jao] ${error instanceof Error ? error.message : "unexpected error"}\n`);
+  process.stderr.write(`[jev-decision-kit] ${error instanceof Error ? error.message : "unexpected error"}\n`);
   process.exitCode = 1;
 });

@@ -1,10 +1,10 @@
 {
-  "name": "jev-agent-optimizer",
+  "name": "jev-decision-kit",
   "description": "Model and effort routing plus search and memory selection for Claude Code with TypeSafe Jev.",
-  "owner": { "name": "Jev Agent Optimizer contributors" },
+  "owner": { "name": "Jev Decision Kit contributors" },
   "plugins": [
     {
-      "name": "jev-agent-optimizer",
+      "name": "jev-decision-kit",
       "source": "./claude-mod",
       "description": "Choose Claude Code's model and effort per turn, and provide search and memory selection skills."
     }

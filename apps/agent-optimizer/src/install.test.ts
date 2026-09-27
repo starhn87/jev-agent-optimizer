@@ -30,7 +30,7 @@ test("Codex setup preserves unrelated TOML sections, including later edits on re
   assert.match(removed, /\[new_feature\]\nenabled = true/);
   assert.equal(removed.includes("agent_router"), false);
   assert.equal(configureCodex(changed), changed);
-  const legacy = changed.replace('name = "Jev Agent Optimizer"', 'name = "Agent Model Router"');
+  const legacy = changed.replace('name = "Jev Decision Kit"', 'name = "Agent Model Router"');
   assert.match(unconfigureCodex(legacy, original), /^model = "custom"\nmodel_provider = "existing"/);
   assert.equal(configureCodex(legacy), changed);
 });
@@ -48,7 +48,7 @@ test("Claude setup and removal merge only managed env keys and adopt existing au
   const original = JSON.stringify({ env: { OTHER: "preserved", AMR_CLAUDE_AUTO: "1" }, permissions: { allow: ["Read"] } });
   const updated = configureClaude(original, "/repo");
   assert.equal(JSON.parse(updated).env.AMR_CLAUDE_AUTO, undefined);
-  assert.equal(JSON.parse(updated).env.JAO_CLAUDE_AUTO, "1");
+  assert.equal(JSON.parse(updated).env.JEV_KIT_CLAUDE_AUTO, "1");
   const later = JSON.parse(updated); later.theme = "dark";
   const removed = JSON.parse(unconfigureClaude(JSON.stringify(later), original, "/repo"));
   assert.equal(removed.env.OTHER, "preserved");
@@ -56,24 +56,24 @@ test("Claude setup and removal merge only managed env keys and adopt existing au
   assert.equal(removed.theme, "dark");
   assert.deepEqual(removed.permissions, { allow: ["Read"] });
   assert.throws(() => configureClaude('{"enabledPlugins":{"agent-model-router@amr":true}}', "/repo"), /마켓플레이스/);
-  assert.throws(() => configureClaude('{"enabledPlugins":{"jev-agent-optimizer@jev-agent-optimizer":true}}', "/repo"), /마켓플레이스/);
+  assert.throws(() => configureClaude('{"enabledPlugins":{"jev-decision-kit@jev-decision-kit":true}}', "/repo"), /마켓플레이스/);
 });
 
 test("Claude install is idempotent, stores private backups and removes cleanly", async (t) => {
   const h = fixture(t);
   h.put(".claude/settings.json", '{"env":{"OTHER":"preserved"}}');
   await install("claude", h.context);
-  const firstState = h.get(".jev-agent-optimizer/install.json");
+  const firstState = h.get(".jev-decision-kit/install.json");
   await install("claude", h.context);
-  assert.equal(h.get(".jev-agent-optimizer/install.json"), firstState);
-  assert.ok(lstatSync(join(h.context.home, ".claude/skills/jev-agent-optimizer")).isSymbolicLink());
+  assert.equal(h.get(".jev-decision-kit/install.json"), firstState);
+  assert.ok(lstatSync(join(h.context.home, ".claude/skills/jev-decision-kit")).isSymbolicLink());
   assert.ok(lstatSync(join(h.context.home, ".claude/skills/agent-context-gates")).isSymbolicLink());
-  assert.equal(lstatSync(join(h.context.home, ".jev-agent-optimizer/install.json")).mode & 0o777, 0o600);
+  assert.equal(lstatSync(join(h.context.home, ".jev-decision-kit/install.json")).mode & 0o777, 0o600);
   const settings = JSON.parse(h.get(".claude/settings.json")); settings.theme = "dark";
   h.put(".claude/settings.json", JSON.stringify(settings));
   uninstall("claude", h.context);
   assert.deepEqual(JSON.parse(h.get(".claude/settings.json")), { env: { OTHER: "preserved" }, theme: "dark" });
-  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-agent-optimizer")), false);
+  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-decision-kit")), false);
   assert.equal(existsSync(join(h.context.home, ".claude/skills/agent-context-gates")), false);
 });
 
@@ -84,13 +84,13 @@ test("legacy install state and Claude env move to the new names", async (t) => {
   h.put(".claude/settings.json", JSON.stringify({ env: { OTHER: "preserved", CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1",
     AMR_CLAUDE_AUTO: "1", AMR_ENV_FILE: join(h.context.repo, ".env"), AMR_RESPONSE_FOOTER: "1" } }));
   mkdirSync(join(h.context.home, ".claude/skills"), { recursive: true });
-  symlinkSync(join(h.context.repo, "claude-mod"), join(h.context.home, ".claude/skills/jev-agent-optimizer"), "dir");
+  symlinkSync(join(h.context.repo, "claude-mod"), join(h.context.home, ".claude/skills/jev-decision-kit"), "dir");
   await install("claude", h.context);
   assert.equal(existsSync(join(h.context.home, ".agent-model-router/install.json")), false);
-  assert.equal(existsSync(join(h.context.home, ".jev-agent-optimizer/install.json")), true);
+  assert.equal(existsSync(join(h.context.home, ".jev-decision-kit/install.json")), true);
   const env = JSON.parse(h.get(".claude/settings.json")).env;
-  assert.equal(env.JAO_CLAUDE_AUTO, "1");
-  assert.equal(env.JAO_ENV_FILE, join(h.context.repo, ".env"));
+  assert.equal(env.JEV_KIT_CLAUDE_AUTO, "1");
+  assert.equal(env.JEV_KIT_ENV_FILE, join(h.context.repo, ".env"));
   assert.equal(env.AMR_CLAUDE_AUTO, undefined);
   uninstall("claude", h.context);
   assert.deepEqual(JSON.parse(h.get(".claude/settings.json")).env, { OTHER: "preserved" });
@@ -103,17 +103,52 @@ test("renamed checkouts update managed paths and remain removable through their 
   renameSync(original, renamed); symlinkSync(renamed, original, "dir");
   h.context.repo = renamed;
   await install("claude", h.context);
-  assert.equal(JSON.parse(h.get(".jev-agent-optimizer/install.json")).repo, renamed);
-  assert.equal(JSON.parse(h.get(".claude/settings.json")).env.JAO_ENV_FILE, join(renamed, ".env"));
+  assert.equal(JSON.parse(h.get(".jev-decision-kit/install.json")).repo, renamed);
+  assert.equal(JSON.parse(h.get(".claude/settings.json")).env.JEV_KIT_ENV_FILE, join(renamed, ".env"));
   assert.match(await doctor(h.context), /플러그인 로컬 연결됨/);
   uninstall("claude", { ...h.context, repo: original });
-  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-agent-optimizer")), false);
+  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-decision-kit")), false);
+});
+
+test("previous Jev Agent Optimizer installation migrates IDs and optional settings without duplicate registration", async (t) => {
+  const h = fixture(t);
+  h.put(".jev-agent-optimizer/install.json", JSON.stringify({ version: 1, repo: h.context.repo,
+    claude: { config: '{"env":{"OTHER":"keep"}}', linkExisted: false } }));
+  h.put(".claude/settings.json", JSON.stringify({ env: { OTHER: "keep", CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1",
+    JAO_CLAUDE_AUTO: "1", JAO_ENV_FILE: join(h.context.repo, ".env"), JAO_RESPONSE_FOOTER: "1",
+    JAO_CLAUDE_FAST_MODEL: "custom-fast", JAO_CLAUDE_METRICS: "0" } }));
+  mkdirSync(join(h.context.home, ".claude/skills"), { recursive: true });
+  const legacy = join(h.context.home, ".claude/skills/jev-agent-optimizer");
+  symlinkSync(join(h.context.repo, "claude-mod"), legacy, "dir");
+  await install("claude", h.context);
+  assert.equal(existsSync(legacy), false);
+  assert.equal(existsSync(join(h.context.home, ".jev-agent-optimizer/install.json")), false);
+  const env = JSON.parse(h.get(".claude/settings.json")).env;
+  assert.equal(env.JEV_KIT_CLAUDE_FAST_MODEL, "custom-fast");
+  assert.equal(env.JEV_KIT_CLAUDE_METRICS, "0");
+  assert.ok(Object.keys(env).every(key => !key.startsWith("JAO_")));
+  await install("claude", h.context);
+  uninstall("claude", h.context);
+  assert.equal(existsSync(join(h.context.home, ".claude/skills/jev-decision-kit")), false);
+  assert.equal(JSON.parse(h.get(".claude/settings.json")).env.OTHER, "keep");
+  assert.throws(() => configureClaude('{"enabledPlugins":{"jev-agent-optimizer@jev-agent-optimizer":true}}', "/repo"), /마켓플레이스/);
+});
+
+test("manual same-checkout links migrate and retain their ownership on removal", async (t) => {
+  const h = fixture(t);
+  mkdirSync(join(h.context.home, ".claude/skills"), { recursive: true });
+  const old = join(h.context.home, ".claude/skills/jev-agent-optimizer");
+  symlinkSync(join(h.context.repo, "claude-mod"), old, "dir");
+  await install("claude", h.context);
+  assert.equal(existsSync(old), false);
+  uninstall("claude", h.context);
+  assert.ok(lstatSync(join(h.context.home, ".claude/skills/jev-decision-kit")).isSymbolicLink());
 });
 
 test("conflicting old and new install records stop migration before changes", async (t) => {
   const h = fixture(t);
   h.put(".agent-model-router/install.json", JSON.stringify({ version: 1, repo: h.context.repo }));
-  h.put(".jev-agent-optimizer/install.json", JSON.stringify({ version: 1, repo: "/different" }));
+  h.put(".jev-decision-kit/install.json", JSON.stringify({ version: 1, repo: "/different" }));
   await assert.rejects(install("claude", h.context), /서로 달라/);
   assert.equal(existsSync(join(h.context.home, ".claude/settings.json")), false);
 });
@@ -130,7 +165,7 @@ test("both install validates before mutations and handles an existing unrelated 
 test("existing Claude plugin link migrates to the new ID and remains removable", async (t) => {
   const h = fixture(t);
   await install("claude", h.context);
-  const current = join(h.context.home, ".claude/skills/jev-agent-optimizer");
+  const current = join(h.context.home, ".claude/skills/jev-decision-kit");
   const legacy = join(h.context.home, ".claude/skills/agent-model-router");
   rmSync(current);
   symlinkSync(join(h.context.repo, "claude-mod"), legacy, "dir");
@@ -151,7 +186,7 @@ test("user-owned legacy Claude link moves to the new ID and stays on uninstall",
   h.put(".claude/settings.json", JSON.stringify({ env: { CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1",
     AMR_CLAUDE_AUTO: "1", AMR_ENV_FILE: join(h.context.repo, ".env"), AMR_RESPONSE_FOOTER: "1" } }));
   await install("claude", h.context);
-  const current = join(h.context.home, ".claude/skills/jev-agent-optimizer");
+  const current = join(h.context.home, ".claude/skills/jev-decision-kit");
   assert.equal(existsSync(join(h.context.home, ".agent-model-router/install.json")), false);
   assert.equal(existsSync(legacy), false);
   assert.ok(lstatSync(current).isSymbolicLink());
@@ -202,9 +237,9 @@ test("existing Codex setup gains the new skill link on reinstall", async (t) => 
   await install("codex", h.context);
   const link = join(h.context.home, ".agents/skills/agent-context-gates");
   rmSync(link);
-  const state = JSON.parse(h.get(".jev-agent-optimizer/install.json"));
+  const state = JSON.parse(h.get(".jev-decision-kit/install.json"));
   delete state.codex.skillLinkExisted;
-  h.put(".jev-agent-optimizer/install.json", JSON.stringify(state));
+  h.put(".jev-decision-kit/install.json", JSON.stringify(state));
   await install("codex", h.context);
   assert.ok(lstatSync(link).isSymbolicLink());
   uninstall("codex", h.context);

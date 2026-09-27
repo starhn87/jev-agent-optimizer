@@ -21,10 +21,10 @@ Claude Code는 별도의 함수 훅을 사용합니다. 위 Sol 기본값은 Cod
 - 상향(예: Sol → Astra)은 신뢰도 0.8 이상이면 `would-switch`로 기록합니다.
 - 하향은 모델 전환으로 따뜻한 프롬프트 캐시를 잃으므로, 문맥이 20,000토큰 이하일 때만 기록합니다(Codex는 `--downgrade-confidence` 기준도 적용).
 - 직전 요청·답변에 민감정보 패턴이 있거나 직전 교환이 없으면 Jev를 호출하지 않습니다. 이 판정은 기존보다 **직전 답변 일부를 추가로** Jev에 보낸다는 점에 유의하세요.
-- 끄려면 Codex는 `--continuation-shadow off`, Claude는 `JAO_CLAUDE_CONTINUATION_SHADOW=0`을 사용합니다.
+- 끄려면 Codex는 `--continuation-shadow off`, Claude는 `JEV_KIT_CLAUDE_CONTINUATION_SHADOW=0`을 사용합니다.
 
 `report`의 `continuationShadow`에서 상향·하향·유지 건수와 지연을 확인한 뒤 실제 적용 여부를 정합니다.
 
-Claude 함수 훅은 판정과 메인 루프 응답마다 `.env`와 같은 폴더의 `.local/claude.jsonl`에 모델·사유·토큰·지연만 기록합니다(프롬프트·답변 원문 없음, 약 3MiB에서 오래된 줄부터 삭제). `node dist/cli.js report .local/claude.jsonl`로 Codex와 같은 요약을 볼 수 있고, `JAO_CLAUDE_METRICS=0`이면 기록하지 않습니다.
+Claude 함수 훅은 판정과 메인 루프 응답마다 `.env`와 같은 폴더의 `.local/claude.jsonl`에 모델·사유·토큰·지연만 기록합니다(프롬프트·답변 원문 없음, 약 3MiB에서 오래된 줄부터 삭제). `node dist/cli.js report .local/claude.jsonl`로 Codex와 같은 요약을 볼 수 있고, `JEV_KIT_CLAUDE_METRICS=0`이면 기록하지 않습니다.
 
 완료한 일반 답변에는 실제 응답 모델과 요청한 effort를 표시합니다. effort는 서버가 실제로 사용한 내부 추론량을 뜻하지 않습니다. Codex의 수동 모델 선택, 도구 호출 중간 메시지, 구조화 JSON 출력, 제목 생성, 실패·중단 응답에는 요약을 붙이지 않습니다. Claude의 요약은 화면 하단 표시이며 대화 원문에는 추가하지 않습니다. 모델·effort 메뉴는 턴별 결과와 다를 수 있습니다.

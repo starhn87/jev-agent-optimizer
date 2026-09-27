@@ -14,8 +14,9 @@ export type InstallContext = {
 const LABEL = "com.agent-model-router.codex";
 const PORT = 8765;
 const CODEX_KEYS = /^\s*(model|model_provider)\s*=/;
-const PROVIDER = `[model_providers.agent_router]\nname = "Jev Agent Optimizer"\nbase_url = "http://127.0.0.1:8765"\nwire_api = "responses"\nrequires_openai_auth = true\nsupports_websockets = false\n`;
-const LEGACY_PROVIDER = PROVIDER.replace('name = "Jev Agent Optimizer"', 'name = "Agent Model Router"');
+const PROVIDER = `[model_providers.agent_router]\nname = "Jev Decision Kit"\nbase_url = "http://127.0.0.1:8765"\nwire_api = "responses"\nrequires_openai_auth = true\nsupports_websockets = false\n`;
+const LEGACY_PROVIDER = PROVIDER.replace('name = "Jev Decision Kit"', 'name = "Agent Model Router"');
+const PREVIOUS_PROVIDER = PROVIDER.replace('name = "Jev Decision Kit"', 'name = "Jev Agent Optimizer"');
 const ROOT_SETTINGS = 'model = "gpt-6-astra"\nmodel_provider = "agent_router"\n';
 const read = (path: string): string | null => existsSync(path) ? readFileSync(path, "utf8") : null;
 const present = (path: string): boolean => { try { lstatSync(path); return true; } catch { return false; } };
@@ -27,7 +28,7 @@ const sameLink = (path: string, target: string): boolean => {
 };
 function write(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  const temp = `${path}.amr-${process.pid}.tmp`;
+  const temp = `${path}.jev-kit-${process.pid}.tmp`;
   writeFileSync(temp, text, { mode: 0o600, flag: "wx" });
   renameSync(temp, path);
 }
@@ -70,7 +71,7 @@ export function unconfigureCodex(current: string, previous: string | null): stri
   const parsed = sections(current);
   const original = sections(previous ?? "");
   if (modelLines(parsed.head) !== ROOT_SETTINGS ||
-    ![PROVIDER.trim(), LEGACY_PROVIDER.trim()].includes(parsed.provider?.trim() ?? "")) {
+    ![PROVIDER.trim(), PREVIOUS_PROVIDER.trim(), LEGACY_PROVIDER.trim()].includes(parsed.provider?.trim() ?? "")) {
     throw new Error("설치 후 Codex의 라우터 설정이 변경됐습니다. 해당 설정을 먼저 확인하세요.");
   }
   let restored = modelLines(original.head);
@@ -79,20 +80,27 @@ export function unconfigureCodex(current: string, previous: string | null): stri
   return `${restored}${headWithoutModel(parsed.head)}${parsed.rest.join("").trimEnd()}${!adopted && original.provider ? `\n\n${original.provider}` : ""}\n`;
 }
 function claudeEnv(repo: string): Record<string, string> {
-  return { CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1", JAO_CLAUDE_AUTO: "1", JAO_ENV_FILE: join(repo, ".env"), JAO_RESPONSE_FOOTER: "1" };
+  return { CLAUDE_CODE_ENABLE_FUNCTION_HOOKS: "1", JEV_KIT_CLAUDE_AUTO: "1", JEV_KIT_ENV_FILE: join(repo, ".env"), JEV_KIT_RESPONSE_FOOTER: "1" };
 }
-function removeLegacyClaudeEnv(settings: Record<string, any>, repo: string): void {
-  const managed = { AMR_CLAUDE_AUTO: "1", AMR_ENV_FILE: join(repo, ".env"), AMR_RESPONSE_FOOTER: "1" };
-  for (const [key, value] of Object.entries(managed)) if (settings.env?.[key] === value) delete settings.env[key];
+function migrateClaudeEnv(settings: Record<string, any>): void {
+  for (const prefix of ["JAO_", "AMR_"]) {
+    for (const [key, value] of Object.entries(settings.env ?? {})) {
+      if (!key.startsWith(prefix)) continue;
+      const current = `JEV_KIT_${key.slice(prefix.length)}`;
+      settings.env[current] ??= value;
+      delete settings.env[key];
+    }
+  }
 }
+const kitPlugin = (name: string): boolean => ["jev-decision-kit@", "jev-agent-optimizer@", "agent-model-router@"].some(prefix => name.startsWith(prefix));
 export function configureClaude(text: string | null, repo: string): string {
   const settings = object(text);
   if (settings.env !== undefined && (!settings.env || typeof settings.env !== "object" || Array.isArray(settings.env))) throw new Error("Claude env 설정이 객체가 아닙니다.");
   if (Object.entries(settings.enabledPlugins ?? {}).some(([name, enabled]) =>
-    (name.startsWith("jev-agent-optimizer@") || name.startsWith("agent-model-router@")) && enabled)) {
+    kitPlugin(name) && enabled)) {
     throw new Error("마켓플레이스 라우터가 이미 설치되어 있습니다. 중복 설치하지 말고 해당 플러그인을 사용하세요.");
   }
-  removeLegacyClaudeEnv(settings, repo);
+  migrateClaudeEnv(settings);
   return json({ ...settings, env: { ...settings.env, ...claudeEnv(repo) } });
 }
 export function unconfigureClaude(current: string, previous: string | null, repo: string): string {
@@ -106,6 +114,7 @@ export function unconfigureClaude(current: string, previous: string | null, repo
   // Adopt legacy installs, but disabling must actually turn routing off.
   if (before.env?.AMR_CLAUDE_AUTO === "1") settings.env.AMR_CLAUDE_AUTO = "0";
   if (before.env?.JAO_CLAUDE_AUTO === "1") settings.env.JAO_CLAUDE_AUTO = "0";
+  if (before.env?.JEV_KIT_CLAUDE_AUTO === "1") settings.env.JEV_KIT_CLAUDE_AUTO = "0";
   if (!Object.keys(settings.env).length) delete settings.env;
   return json(settings);
 }
@@ -119,9 +128,11 @@ export function servicePlist(context: InstallContext): string {
 type SavedClient = { config: string | null; service?: string | null; linkExisted?: boolean; skillLinkExisted?: boolean };
 type InstallState = { version: 1; repo: string; codex?: SavedClient; claude?: SavedClient };
 function paths(context: InstallContext) {
-  return { state: join(context.home, ".jev-agent-optimizer/install.json"), legacyState: join(context.home, ".agent-model-router/install.json"), codex: join(context.home, ".codex/config.toml"),
-    claude: join(context.home, ".claude/settings.json"), link: join(context.home, ".claude/skills/jev-agent-optimizer"),
-    legacyLink: join(context.home, ".claude/skills/agent-model-router"),
+  const legacyStates = [".jev-agent-optimizer", ".agent-model-router"].map(name => join(context.home, name, "install.json"));
+  const legacyLinks = ["jev-agent-optimizer", "agent-model-router"].map(name => join(context.home, ".claude/skills", name));
+  return { state: join(context.home, ".jev-decision-kit/install.json"), legacyStates, legacyState: legacyStates.find(present) ?? legacyStates[0]!, codex: join(context.home, ".codex/config.toml"),
+    claude: join(context.home, ".claude/settings.json"), link: join(context.home, ".claude/skills/jev-decision-kit"),
+    legacyLinks, legacyLink: legacyLinks.find(present) ?? legacyLinks[0]!,
     codexSkill: join(context.home, ".agents/skills/agent-context-gates"),
     claudeSkill: join(context.home, ".claude/skills/agent-context-gates"),
     gateTarget: join(context.repo, "claude-mod/skills/agent-context-gates"),
@@ -129,10 +140,9 @@ function paths(context: InstallContext) {
 }
 function stateOf(context: InstallContext): InstallState {
   const p = paths(context);
-  const current = read(p.state);
-  const legacy = read(p.legacyState);
-  if (current && legacy && current !== legacy) throw new Error("새·기존 설치 기록이 서로 달라 자동 이전을 중단했습니다.");
-  const text = current ?? legacy;
+  const records = [p.state, ...p.legacyStates].map(read).filter((text): text is string => text !== null);
+  if (new Set(records).size > 1) throw new Error("새·기존 설치 기록이 서로 달라 자동 이전을 중단했습니다.");
+  const text = records[0];
   if (!text) return { version: 1, repo: context.repo };
   const state = JSON.parse(text) as InstallState;
   if (state.version !== 1 || typeof state.repo !== "string" || !sameLocation(state.repo, context.repo)) throw new Error("다른 경로에서 설치된 라우터가 있습니다. 기존 경로에서 먼저 해제하세요.");
@@ -147,7 +157,7 @@ function stop(context: InstallContext, service: string): void {
 }
 function start(context: InstallContext, service: string): void { context.run("launchctl", ["bootstrap", domain(), service]); }
 function backup(context: InstallContext, files: string[]): void {
-  const dir = join(context.home, ".jev-agent-optimizer/backups", `${Date.now()}-${process.pid}`);
+  const dir = join(context.home, ".jev-decision-kit/backups", `${Date.now()}-${process.pid}`);
   for (const [index, file] of files.entries()) {
     const content = read(file);
     if (content !== null) write(join(dir, `${index}-${file.split("/").at(-1)}`), content);
@@ -178,9 +188,7 @@ export async function install(client: Client, context: InstallContext): Promise<
   if (claude) {
     context.run("claude", ["plugin", "validate", "--strict", p.target]);
     if (present(p.link) && !sameLink(p.link, p.target)) throw new Error("Claude 설치 위치에 다른 파일이 있어 덮어쓰지 않았습니다.");
-    if (!state.claude && present(p.legacyLink))
-      throw new Error("기존 Claude 플러그인 연결이 있습니다. 기존 설치를 해제한 뒤 다시 설치하세요.");
-    if (state.claude && present(p.legacyLink) && !sameLink(p.legacyLink, p.target))
+    if (p.legacyLinks.some(link => present(link) && !sameLink(link, p.target)))
       throw new Error("기존 Claude 플러그인 연결이 변경되어 자동 이전을 중단했습니다.");
     if (state.claude?.linkExisted === true && present(p.link) && sameLink(p.legacyLink, p.target))
       throw new Error("기존·새 Claude 연결이 모두 있어 사용자 소유 연결을 자동 이전하지 않았습니다.");
@@ -208,10 +216,12 @@ export async function install(client: Client, context: InstallContext): Promise<
       }
     }
   }
-  backup(context, [p.codex, p.claude, p.service, p.state, p.legacyState]);
+  backup(context, [p.codex, p.claude, p.service, p.state, ...p.legacyStates]);
   const hadLink = present(p.link);
-  const hadLegacyLink = Boolean(state.claude && sameLink(p.legacyLink, p.target));
-  const migrateOwnedLink = hadLegacyLink && state.claude?.linkExisted === true;
+  const hadLegacyLinks = p.legacyLinks.filter(link => sameLink(link, p.target));
+  const hadLegacyLink = hadLegacyLinks.length > 0;
+  const migrateOwnedLink = hadLegacyLink && (state.claude?.linkExisted === true || !state.claude);
+  if (claude && migrateOwnedLink && (hadLink || hadLegacyLinks.length > 1)) throw new Error("기존·새 Claude 연결이 모두 있어 사용자 소유 연결을 자동 이전하지 않았습니다.");
   const hadCodexSkill = present(p.codexSkill);
   const hadClaudeSkill = present(p.claudeSkill);
   const oldState = read(p.state);
@@ -246,13 +256,13 @@ export async function install(client: Client, context: InstallContext): Promise<
       else if (!hadLink) symlinkSync(p.target, p.link, context.platform === "win32" ? "junction" : "dir");
       if (!hadClaudeSkill) symlinkSync(p.gateTarget, p.claudeSkill, context.platform === "win32" ? "junction" : "dir");
       write(p.claude, updatedClaude!);
-      state.claude ??= { config: beforeClaude, linkExisted: hadLink };
+      state.claude ??= { config: beforeClaude, linkExisted: hadLink || migrateOwnedLink };
       state.claude.skillLinkExisted ??= hadClaudeSkill;
-      if (hadLegacyLink && !migrateOwnedLink) rmSync(p.legacyLink);
+      if (!migrateOwnedLink) for (const link of hadLegacyLinks) rmSync(link);
     }
     state.repo = context.repo;
     write(p.state, json(state));
-    if (present(p.legacyState)) rmSync(p.legacyState);
+    for (const path of p.legacyStates) if (present(path)) rmSync(path);
   } catch (error) {
     if (codex && serviceStopped) {
       stop(context, p.service); restore(p.service, beforeService); restore(p.codex, beforeCodex);
@@ -264,15 +274,16 @@ export async function install(client: Client, context: InstallContext): Promise<
       if (migrateOwnedLink && sameLink(p.link, p.target) && !present(p.legacyLink)) renameSync(p.link, p.legacyLink);
       else if (!hadLink && sameLink(p.link, p.target)) rmSync(p.link);
     }
-    if (claude && hadLegacyLink && !migrateOwnedLink && !present(p.legacyLink))
-      symlinkSync(p.target, p.legacyLink, context.platform === "win32" ? "junction" : "dir");
+    if (claude && !migrateOwnedLink) for (const link of hadLegacyLinks) {
+      if (!present(link)) symlinkSync(p.target, link, context.platform === "win32" ? "junction" : "dir");
+    }
     if (claude && !hadClaudeSkill && sameLink(p.claudeSkill, p.gateTarget)) rmSync(p.claudeSkill);
     restore(p.state, oldState);
     throw error;
   }
-  return `${client} 설치 완료. 설정 백업: ${join(context.home, ".jev-agent-optimizer/backups")}\n` +
+  return `${client} 설치 완료. 설정 백업: ${join(context.home, ".jev-decision-kit/backups")}\n` +
     (codex ? "Codex: 로그인 시 서버가 자동 시작됩니다. 앱을 재시작하고 새 작업에서 Jev Auto를 선택하세요. 검색·기억 스킬도 연결됐습니다.\n" : "") +
-    (claude ? "Claude: 새 CLI/Code 탭 세션부터 자동 적용됩니다. /jao-route로 확인하세요. 검색·기억 스킬도 연결됐습니다.\n" : "") +
+    (claude ? "Claude: 새 CLI/Code 탭 세션부터 자동 적용됩니다. /jev-decision-kit-route로 확인하세요. 검색·기억 스킬도 연결됐습니다.\n" : "") +
     "응답 시작에 선택 모델과 요청 effort가 표시되고(Claude는 화면 표시만), 실제 모델이 다를 때만 끝에 알립니다. npm run doctor로 설치 상태를 확인하세요.\n";
 }
 
@@ -285,12 +296,12 @@ export function uninstall(client: Client, context: InstallContext): string {
   const nextCodex = codex ? unconfigureCodex(read(p.codex) ?? "", codex.config) : null;
   const nextClaude = claude ? unconfigureClaude(read(p.claude) ?? "{}", claude.config, state.repo) : null;
   if (codex && read(p.service) !== servicePlist({ ...context, repo: state.repo })) throw new Error("라우터 서비스 파일이 변경되어 자동 해제를 중단했습니다.");
-  if (claude && !sameLink(p.link, p.target) && !sameLink(p.legacyLink, p.target))
+  if (claude && ![p.link, ...p.legacyLinks].some(link => sameLink(link, p.target)))
     throw new Error("Claude 플러그인 연결이 변경되어 자동 해제를 중단했습니다.");
   if (codex && codex.skillLinkExisted === false && !sameLink(p.codexSkill, p.gateTarget)) throw new Error("Codex 검색·기억 스킬 연결이 변경됐습니다.");
   if (claude && claude.skillLinkExisted === false && !sameLink(p.claudeSkill, p.gateTarget)) throw new Error("Claude 검색·기억 스킬 연결이 변경됐습니다.");
   if (!codex && !claude) throw new Error("이 설치 도구의 설치 기록이 없습니다. 먼저 npm run setup으로 기존 설치를 등록하세요.");
-  backup(context, [p.codex, p.claude, p.service, p.state, p.legacyState]);
+  backup(context, [p.codex, p.claude, p.service, p.state, ...p.legacyStates]);
   if (codex) {
     // Restore the provider before stopping the service, including adopted legacy installs.
     write(p.codex, nextCodex!);
@@ -300,12 +311,12 @@ export function uninstall(client: Client, context: InstallContext): string {
   if (claude) {
     write(p.claude, nextClaude!);
     if (claude.linkExisted !== true && sameLink(p.link, p.target)) rmSync(p.link);
-    if (claude.linkExisted !== true && sameLink(p.legacyLink, p.target)) rmSync(p.legacyLink);
+    if (claude.linkExisted !== true) for (const link of p.legacyLinks) if (sameLink(link, p.target)) rmSync(link);
     delete state.claude;
     if (claude.skillLinkExisted === false) rmSync(p.claudeSkill);
   }
   write(p.state, json(state));
-  if (present(p.legacyState)) rmSync(p.legacyState);
+  for (const path of p.legacyStates) if (present(path)) rmSync(path);
   return "자동 라우팅을 해제했습니다. Codex 앱을 재시작하고 새 작업을 만드세요. Claude도 새 세션부터 반영됩니다. 키 파일은 보존했습니다.\n";
 }
 
@@ -321,19 +332,19 @@ function jevHealth(path: string): string | null {
 
 export async function doctor(context: InstallContext): Promise<string> {
   const p = paths(context);
-  const lines = [`Jev Agent Optimizer · ${context.repo}`];
+  const lines = [`Jev Decision Kit · ${context.repo}`];
   if (context.customConfig?.codex || context.customConfig?.claude) {
     lines.push("주의: 사용자 지정 설정 경로가 감지되었습니다. 아래 결과는 기본 사용자 경로만 진단합니다.");
   }
   try { checkKey(context.repo); lines.push("TypeSafe 키: .env에 설정됨 (값은 표시하지 않음)"); } catch { lines.push("TypeSafe 키: 설정 필요 (.env)"); }
   try {
     const settings = object(read(p.claude));
-    const linked = sameLink(p.link, p.target) || sameLink(p.legacyLink, p.target);
+    const linked = [p.link, ...p.legacyLinks].some(link => sameLink(link, p.target));
     const marketplace = Object.entries(settings.enabledPlugins ?? {}).some(([name, enabled]) =>
-      (name.startsWith("jev-agent-optimizer@") || name.startsWith("agent-model-router@")) && enabled);
-    const enabled = (settings.env?.JAO_CLAUDE_AUTO === "1" || settings.env?.AMR_CLAUDE_AUTO === "1") && settings.env?.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS === "1";
+      kitPlugin(name) && enabled);
+    const enabled = (settings.env?.JEV_KIT_CLAUDE_AUTO ?? settings.env?.JAO_CLAUDE_AUTO ?? settings.env?.AMR_CLAUDE_AUTO) === "1" && settings.env?.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS === "1";
     lines.push(`Claude: 플러그인 ${linked ? "로컬 연결됨" : marketplace ? "마켓플레이스에서 활성화됨" : "연결 없음"} · 자동 라우팅 ${enabled ? "설정 켜짐" : "설정 꺼짐"}`);
-    lines.push(`  설정: ${p.claude}\n  확인: 새 Claude Code 세션에서 /jao-route (일반 채팅에는 적용 안 됨)`);
+    lines.push(`  설정: ${p.claude}\n  확인: 새 Claude Code 세션에서 /jev-decision-kit-route (일반 채팅에는 적용 안 됨)`);
   } catch { lines.push(`Claude: 설정 읽기 실패 (${p.claude})`); }
   try {
     const config = sections(read(p.codex) ?? "");

@@ -24,7 +24,7 @@ function harness({ answer = "fast", confidence = 0.95, effortScore = 2.8, env = 
   const $ = {
     plugin: { root: "/router/claude-mod" },
     ui: { invalidate: (event) => invalidated.push(event) },
-    env: { get: async (name) => ({ JAO_CLAUDE_AUTO: "1", ...env })[name] },
+    env: { get: async (name) => ({ JEV_KIT_CLAUDE_AUTO: "1", ...env })[name] },
     fs: {
       read: async (path) => {
         if (files.has(path)) return files.get(path);
@@ -104,7 +104,17 @@ test("routes every main-loop step in one turn and records the served model", asy
   assert.match(h.status(), /API served claude-haiku-4-5/);
   assert.match(h.status(), /Jev recommended effort xhigh; requested effort xhigh/);
   assert.match(h.status(), /requested effort xhigh/);
-  assert.equal(h.registered[0].name, "jao-route");
+  assert.equal(h.registered[0].name, "jev-decision-kit-route");
+});
+
+test("legacy environment remains usable and new names can explicitly disable routing", async () => {
+  const legacy = harness({ env: { JEV_KIT_CLAUDE_AUTO: undefined, JAO_CLAUDE_AUTO: "1", JAO_ENV_FILE: "/legacy/.env" } });
+  await legacy.start("legacy-turn", "Implement this small API change.");
+  assert.equal(legacy.requests.length, 1);
+  assert.equal(legacy.registered[0].name, "jev-decision-kit-route");
+  const disabled = harness({ env: { JEV_KIT_CLAUDE_AUTO: "0", JAO_CLAUDE_AUTO: "1" } });
+  await disabled.start("disabled-turn", "Implement this small API change.");
+  assert.equal(disabled.requests.length, 0);
 });
 
 test("skips sensitive prompts and leaves the session model on low confidence", async () => {
@@ -128,7 +138,7 @@ test("maps a strong decision to Opus and can be disabled for a new session", asy
   await strong.start("turn-1", "Investigate this difficult multi-file architecture problem.");
   assert.equal((await strong.step("turn-1")).sent.model, "claude-opus-5");
 
-  const disabled = harness({ env: { JAO_CLAUDE_AUTO: "0" } });
+  const disabled = harness({ env: { JEV_KIT_CLAUDE_AUTO: "0" } });
   await disabled.start("turn-2", "Investigate this difficult multi-file architecture problem.");
   assert.equal(disabled.requests.length, 0);
   assert.equal((await disabled.step("turn-2")).sent.model, "claude-sonnet-5");
@@ -171,7 +181,7 @@ test("the prompt footer shows the requested model and effort, also on skipped tu
 });
 
 test("drawing is left alone while routing or the footer is off", async () => {
-  for (const env of [{ JAO_CLAUDE_AUTO: "0" }, { JAO_RESPONSE_FOOTER: "0" }]) {
+  for (const env of [{ JEV_KIT_CLAUDE_AUTO: "0" }, { JEV_KIT_RESPONSE_FOOTER: "0" }]) {
     const h = harness({ env });
     await h.start("t", "Fix the spelling of this short example sentence.");
     await h.step("t", undefined, "Text.");
@@ -202,7 +212,7 @@ test("completion leaves subagents, interruptions, disabled routing and footer op
     await h.step("t");
     assert.equal((await h.complete("t", extra)).text, "Answer");
   }
-  for (const env of [{ JAO_CLAUDE_AUTO: "0" }, { JAO_RESPONSE_FOOTER: "0" }]) {
+  for (const env of [{ JEV_KIT_CLAUDE_AUTO: "0" }, { JEV_KIT_RESPONSE_FOOTER: "0" }]) {
     const h = harness({ env });
     await h.start("t", "Fix the spelling of this short example sentence.");
     await h.step("t");
@@ -243,7 +253,7 @@ test("a simple turn keeps the session model once the context is large enough to 
   assert.equal(h.requests.length, 1);
 });
 
-test("decisions and served responses are logged for jao report without prompt text", async () => {
+test("decisions and served responses are logged for jev-decision-kit report without prompt text", async () => {
   const h = harness();
   await h.start("t", "Please implement this straightforward little change.");
   await h.step("t");
@@ -261,7 +271,7 @@ test("decisions and served responses are logged for jao report without prompt te
 });
 
 test("metrics can be turned off", async () => {
-  const h = harness({ env: { JAO_CLAUDE_METRICS: "0" } });
+  const h = harness({ env: { JEV_KIT_CLAUDE_METRICS: "0" } });
   await h.start("t", "Please implement this straightforward little change.");
   await h.step("t");
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -309,7 +319,7 @@ test("capture is off by default and, when enabled, writes the exact request and 
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(off.files.has("/router/claude-mod/../.local/capture/route-claude.jsonl"), false);
 
-  const on = harness({ env: { JAO_CAPTURE: "1" } });
+  const on = harness({ env: { JEV_KIT_CAPTURE: "1" } });
   await on.start("t", "Please implement this straightforward little change.");
   await on.step("t");
   await waitUntil(() => on.files.has("/router/claude-mod/../.local/capture/route-claude.jsonl"));

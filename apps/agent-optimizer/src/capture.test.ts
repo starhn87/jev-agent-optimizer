@@ -5,10 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 import { captureEnabled, captureFile, captureSink, readJsonl, requestKey, type Capture } from "./capture.js";
 
-test("capture is off unless JAO_CAPTURE=1", () => {
+test("capture is off unless JEV_KIT_CAPTURE=1", () => {
   assert.equal(captureEnabled({}), false);
-  assert.equal(captureEnabled({ JAO_CAPTURE: "0" }), false);
-  assert.equal(captureEnabled({ JAO_CAPTURE: "1" }), true);
+  assert.equal(captureEnabled({ JEV_KIT_CAPTURE: "0" }), false);
+  assert.equal(captureEnabled({ JEV_KIT_CAPTURE: "1" }), true);
   assert.equal(captureSink("route", { env: {} }), undefined);
 });
 
@@ -21,9 +21,9 @@ test("requestKey is stable for identical input and differs when the state change
 });
 
 test("captureSink writes only requests that got an answer, never a raw filesystem or network error", () => {
-  const dir = mkdtempSync(join(tmpdir(), "jao-capture-"));
+  const dir = mkdtempSync(join(tmpdir(), "jev-decision-kit-capture-"));
   try {
-    const sink = captureSink("route", { root: dir, env: { JAO_CAPTURE: "1" }, now: () => new Date("2026-09-27T00:00:00Z") })!;
+    const sink = captureSink("route", { root: dir, env: { JEV_KIT_CAPTURE: "1" }, now: () => new Date("2026-09-27T00:00:00Z") })!;
     sink({ model: "jev-latest", state: { user_turn: "fix the typo" }, questions: { tier: { type: "choice" } } },
       { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } }, usage: { input_tokens: 12 } });
     sink({ model: "jev-latest", state: {}, questions: {} }, {}); // no answers: dropped
@@ -45,7 +45,7 @@ test("captureFile rejects a decision name that is not a plain lowercase word", (
 });
 
 test("readJsonl skips unparsable lines instead of throwing", () => {
-  const dir = mkdtempSync(join(tmpdir(), "jao-capture-"));
+  const dir = mkdtempSync(join(tmpdir(), "jev-decision-kit-capture-"));
   try {
     const path = join(dir, "mixed.jsonl");
     writeFileSync(path, '{"a":1}\n not json\n{"a":2}\n');

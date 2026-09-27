@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "jao": "./dist/cli.js"
+    "jev-decision-kit": "./dist/cli.js"
   },
   "scripts": {
     "build": "npm run build --workspace @starhn87/jev-decisions && tsc -p tsconfig.json",

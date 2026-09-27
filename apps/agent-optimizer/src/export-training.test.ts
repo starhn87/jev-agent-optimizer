@@ -9,7 +9,7 @@ import { exportTrainingRows, toJsonl } from "./export-training.js";
 import type { QueueItem } from "./label-queue.js";
 
 function withTempRoot(run: (root: string) => void): void {
-  const dir = mkdtempSync(join(tmpdir(), "jao-export-"));
+  const dir = mkdtempSync(join(tmpdir(), "jev-decision-kit-export-"));
   try { run(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -21,7 +21,7 @@ function capturedKeys(root: string): string[] {
 
 test("an unlabeled capture is skipped, and a labeled one exports in Kev's shape with no capture metadata", () => {
   withTempRoot((root) => {
-    const sink = captureSink("route", { root, env: { JAO_CAPTURE: "1" } })!;
+    const sink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" } })!;
     sink({ model: "jev-latest", state: { user_turn: "fix the typo" }, questions },
       { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } } });
 
@@ -45,7 +45,7 @@ test("an unlabeled capture is skipped, and a labeled one exports in Kev's shape 
 
 test("labeled rows split deterministically by key and never repeat across train/holdout", () => {
   withTempRoot((root) => {
-    const sink = captureSink("route", { root, env: { JAO_CAPTURE: "1" } })!;
+    const sink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" } })!;
     for (let index = 0; index < 40; index += 1) {
       sink({ model: "jev-latest", state: { user_turn: `case ${index}` }, questions },
         { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } } });

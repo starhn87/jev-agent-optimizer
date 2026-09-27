@@ -47,7 +47,7 @@ Auto effort 메뉴 검토: 설치된 Codex `0.155.0-alpha.16.4`의 app-server는
 
 ## 2. Jev 추천 품질
 
-`fixtures/routing-cases.json`의 합성 사례를 시작점으로, 실제 사용에 가까운 한국어 턴 최소 30개를 사람이 먼저 독립적으로 등급 판정한다. `jao evaluate`의 결과와 비교한다.
+`fixtures/routing-cases.json`의 합성 사례를 시작점으로, 실제 사용에 가까운 한국어 턴 최소 30개를 사람이 먼저 독립적으로 등급 판정한다. `jev-decision-kit evaluate`의 결과와 비교한다.
 
 초기 등급 부여 사례는 10개다. 추가로 [판정 후보 30개](../fixtures/routing-candidates.json)를 준비했지만 `expectedTier`는 모두 비워 두었다. 이 후보는 아직 사람이 독립 판정한 자료가 아니므로 정확도 목표의 근거로 사용할 수 없다.
 
@@ -115,7 +115,7 @@ Claude 데스크톱 Code 탭에서 새 로컬 세션의 공개 합성 맞춤법 
 
 자동 라우팅의 첫 응답 텍스트 앞에 `선택 모델: … · 요청 effort: …`를 표시한다. 실제 제공 모델이 선택 모델과 다를 때만 최종 답변 끝에 불일치 표시를 붙인다. 앞줄은 요청 경로, 끝줄의 모델은 API 응답 메타데이터다. effort는 요청값이며 서버 내부 추론량으로 해석하지 않는다. Codex는 첫 텍스트 델타를 내보낼 때 앞줄을 붙이고, 종료 이벤트에서 완료 텍스트와 항목을 일치시킨다. 다음 턴의 모델 입력에서는 두 표시 줄을 제거한다. Claude는 응답 텍스트를 바꾸지 않는다. 매 턴 `turn.complete` 훅의 하단 요약(`Jev Auto · 모델 · effort`, 불일치 시 `≠ 실제 모델`)으로 표시하며, 이 요약은 stream-json 호스트(데스크톱 Code 탭)에 `system/informational` 알림으로 전달되고 모델 입력에는 들어가지 않는다. 터미널에서는 `ui.render`의 `SessionMode` 라벨로 프롬프트 하단에도 같은 값을 그린다. 짧은 입력이나 분류 생략 시에도 실제 요청에 사용한 세션 모델·effort를 표시한다. 데스크톱 앱(2.9939 기준)은 플러그인 `ui.render`·`ui.log`·`ui.status`를 그리지 않는 것을 앱 번들 문자열로 확인했다.
 
-도구 호출·중단/오류 응답에는 완료 표시를 붙이지 않는다. 중간 commentary 텍스트에는 Codex 시작 줄을 붙이지 않는다. Codex의 구조화 출력·제목 생성·수동 모델·pass/shadow 모드는 보존한다. 미지원 형식·압축·4MiB를 초과하는 보류 데이터는 원문을 전달한다. Claude에서 `JAO_RESPONSE_FOOTER=0`, Codex에서 `--response-footer off`로 표시를 끌 수 있다.
+도구 호출·중단/오류 응답에는 완료 표시를 붙이지 않는다. 중간 commentary 텍스트에는 Codex 시작 줄을 붙이지 않는다. Codex의 구조화 출력·제목 생성·수동 모델·pass/shadow 모드는 보존한다. 미지원 형식·압축·4MiB를 초과하는 보류 데이터는 원문을 전달한다. Claude에서 `JEV_KIT_RESPONSE_FOOTER=0`, Codex에서 `--response-footer off`로 표시를 끌 수 있다.
 
 합성 스트림의 한 바이트 청크·한글/이모지·CRLF·완료 이벤트 순서·실제 모델과 요청 모델 불일치·JSON 응답·관찰 지표 보존을 검증했다. Claude 플러그인 strict 검증과 완료/중단/하위 에이전트/옵트아웃 훅 테스트를 통과했다. 실제 데스크톱 UI의 새 버전 표시는 별도 적용 후 확인 대상이다.
 

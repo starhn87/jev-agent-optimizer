@@ -86,7 +86,7 @@ Codex 앱은 재시작 후 새 작업에서 `Jev Auto`를 선택하고, Claude C
 - `packages/eval`: Node 평가·보고 도구. 게시할 이슈 저장소는 호출자가 지정합니다.
 - `apps/agent-optimizer`: 모델·effort 라우팅과 검색·기억 선별을 사용하는 Codex/Claude 도구.
 
-라이브러리 설치로 데스크톱 설정이나 프록시를 변경하지 않습니다. 에이전트 도구의 CLI 이름과 기존 플러그인 식별자는 유지합니다.
+라이브러리 설치로 데스크톱 설정이나 프록시를 변경하지 않습니다. 에이전트 CLI 명령은 `jev-decision-kit`, Claude 플러그인 ID는 `jev-decision-kit@jev-decision-kit`입니다. `npm run setup`으로 기존 로컬 설치를 새 이름으로 이전할 수 있습니다.
 
 ## 개발과 배포
 

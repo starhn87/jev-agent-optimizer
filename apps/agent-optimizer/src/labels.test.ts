@@ -7,7 +7,7 @@ import { applyLabels, readLabelStore, validateLabel } from "./labels.js";
 import type { QueueItem } from "./label-queue.js";
 
 function withTempRoot(run: (root: string) => void): void {
-  const dir = mkdtempSync(join(tmpdir(), "jao-labels-"));
+  const dir = mkdtempSync(join(tmpdir(), "jev-decision-kit-labels-"));
   try { run(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 

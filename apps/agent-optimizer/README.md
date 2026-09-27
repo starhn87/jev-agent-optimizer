@@ -1,7 +1,7 @@
-# Jev Agent Optimizer
+# Jev Decision Kit
 
 Codex와 Claude Code에서 모델·effort를 자동 선택하고, 검색·기억 후보 선별을 돕습니다.
-명령 이름은 `jao`입니다. 기존 설치는 `npm run setup`으로 플러그인 ID, `JAO_*` 환경변수, 설치 기록 경로를 갱신합니다.
+명령 이름은 `jev-decision-kit`입니다. 기존 설치는 `npm run setup`으로 플러그인 ID, `JEV_KIT_*` 환경변수, 설치 기록 경로를 갱신합니다.
 
 ## 설치
 
@@ -22,9 +22,9 @@ npm run setup
 npm run doctor
 ```
 
-CLI 명령을 직접 쓰려면 `npm link` 후 `jao doctor`를 실행하세요.
+CLI 명령을 직접 쓰려면 `npm link` 후 `jev-decision-kit doctor`를 실행하세요.
 
-이 도구는 저장소 루트에서 빌드·설치합니다. 공개 `@starhn87/jev-decisions`를 설치하는 것만으로 에이전트 설정·LaunchAgent·플러그인이 등록되지는 않습니다. 저장소 이름과 독립적으로 `jao`, `JAO_*`, 플러그인·마켓플레이스 ID `jev-agent-optimizer`, 기존 provider·LaunchAgent 식별자를 유지합니다. 기존 checkout은 URL만 갱신해도 됩니다. 로컬 경로를 옮길 때는 이전 경로에 새 경로를 가리키는 symlink를 유지하고 `npm run setup`을 다시 실행하면 관리 경로를 갱신합니다. 다른 checkout의 설치를 자동으로 인수하지 않습니다.
+이 도구는 저장소 루트에서 빌드·설치합니다. 공개 `@starhn87/jev-decisions`를 설치하는 것만으로 에이전트 설정·LaunchAgent·플러그인이 등록되지는 않습니다. CLI·플러그인·마켓플레이스 이름은 `jev-decision-kit`, 환경변수는 `JEV_KIT_*`입니다. 기존 `jao`·`jev-agent-optimizer` 로컬 설치는 `git pull --ff-only`, `npm ci`, `npm run setup`으로 이전하세요. `npm link`를 사용했다면 다시 실행해 새 명령을 연결하세요. 로컬 경로를 옮길 때는 이전 경로에 새 경로를 가리키는 symlink를 유지하고 `npm run setup`을 다시 실행하면 관리 경로를 갱신합니다. 다른 checkout의 설치를 자동으로 인수하지 않습니다.
 
 사용량 요약:
 

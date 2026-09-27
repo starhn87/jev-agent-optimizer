@@ -8,7 +8,7 @@ import { buildLabelQueue } from "./label-queue.js";
 import { applyLabels } from "./labels.js";
 
 function withTempRoot(run: (root: string) => void): void {
-  const dir = mkdtempSync(join(tmpdir(), "jao-label-"));
+  const dir = mkdtempSync(join(tmpdir(), "jev-decision-kit-label-"));
   try { run(dir); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -16,12 +16,12 @@ const questions = { tier: { type: "choice", instructions: "pick one", criteria: 
 
 test("the queue groups two classifiers' answers for the same request under one item, newest first", () => {
   withTempRoot((root) => {
-    const sink = captureSink("route", { root, env: { JAO_CAPTURE: "1" }, now: () => new Date("2026-09-27T00:00:00Z") })!;
+    const sink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" }, now: () => new Date("2026-09-27T00:00:00Z") })!;
     sink({ model: "jev-latest", state: { user_turn: "a" }, questions },
       { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } } });
     sink({ model: "kev-latest", state: { user_turn: "a" }, questions },
       { answers: { tier: { type: "choice", choice: "strong", confidence: 0.6 } } });
-    const laterSink = captureSink("route", { root, env: { JAO_CAPTURE: "1" }, now: () => new Date("2026-09-27T01:00:00Z") })!;
+    const laterSink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" }, now: () => new Date("2026-09-27T01:00:00Z") })!;
     laterSink({ model: "jev-latest", state: { user_turn: "b" }, questions },
       { answers: { tier: { type: "choice", choice: "balanced", confidence: 0.85 } } });
 
@@ -39,7 +39,7 @@ test("the queue groups two classifiers' answers for the same request under one i
 
 test("an already-labeled key drops out of the queue", () => {
   withTempRoot((root) => {
-    const sink = captureSink("route", { root, env: { JAO_CAPTURE: "1" } })!;
+    const sink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" } })!;
     sink({ model: "jev-latest", state: { user_turn: "a" }, questions }, { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } } });
     const queue = buildLabelQueue("route", { root });
     applyLabels("route", queue.map((item) => ({ ...item, label: { tier: "fast" } })), { root });
@@ -49,7 +49,7 @@ test("an already-labeled key drops out of the queue", () => {
 
 test("the queue respects --limit", () => {
   withTempRoot((root) => {
-    const sink = captureSink("route", { root, env: { JAO_CAPTURE: "1" } })!;
+    const sink = captureSink("route", { root, env: { JEV_KIT_CAPTURE: "1" } })!;
     for (const turn of ["a", "b", "c"]) {
       sink({ model: "jev-latest", state: { user_turn: turn }, questions }, { answers: { tier: { type: "choice", choice: "fast", confidence: 0.9 } } });
     }

@@ -63,8 +63,15 @@ export function choiceFromJev(body) {
   return { tier: answer.choice, confidence: answer.confidence, ...(effort ? { effort } : {}) };
 }
 
+async function kitEnv($, name) {
+  for (const prefix of ["JEV_KIT_", "JAO_", "AMR_"]) {
+    const value = await $.env.get(prefix + name);
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+}
+
 async function envFile($) {
-  return await $.env.get("JAO_ENV_FILE") || `${$.plugin.root}/../.env`;
+  return await kitEnv($, "ENV_FILE") || `${$.plugin.root}/../.env`;
 }
 
 async function apiKey($) {
@@ -79,8 +86,8 @@ async function apiKey($) {
 }
 
 async function modelFor($, tier) {
-  const name = { fast: "JAO_CLAUDE_FAST_MODEL", balanced: "JAO_CLAUDE_BALANCED_MODEL", strong: "JAO_CLAUDE_STRONG_MODEL" }[tier];
-  return await $.env.get(name) || MODELS[tier];
+  const name = { fast: "JEV_KIT_CLAUDE_FAST_MODEL", balanced: "JEV_KIT_CLAUDE_BALANCED_MODEL", strong: "JEV_KIT_CLAUDE_STRONG_MODEL" }[tier];
+  return await kitEnv($, name.slice("JEV_KIT_".length)) || MODELS[tier];
 }
 
 // Mirrors CONTINUATION_NOTE in src/jev.ts.
@@ -156,10 +163,10 @@ async function requestKey(body) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 24);
 }
 
-// Opt-in (JAO_CAPTURE=1): appends the exact request/answer pair to .local/capture/<decision>-claude.jsonl,
+// Opt-in (JEV_KIT_CAPTURE=1): appends the exact request/answer pair to .local/capture/<decision>-claude.jsonl,
 // separate from the Codex-side file the same decision writes, so the two runtimes never race on one file.
 async function captureWriter($, decision) {
-  if ((await $.env.get("JAO_CAPTURE")) !== "1") return undefined;
+  if ((await kitEnv($, "CAPTURE")) !== "1") return undefined;
   const file = (await envFile($)).replace(/[^/\\]*$/, `.local/capture/${decision}-claude.jsonl`);
   return async (body, reply) => {
     if (!reply?.answers || typeof reply.answers !== "object") return;
@@ -179,7 +186,7 @@ async function captureWriter($, decision) {
 async function callJev($, request, onExchange) {
   const key = await apiKey($);
   if (!key) return { error: "TypeSafe key unavailable" };
-  const endpoint = await $.env.get("JAO_TYPESAFE_ENDPOINT") || ENDPOINT;
+  const endpoint = await kitEnv($, "TYPESAFE_ENDPOINT") || ENDPOINT;
   const started = await now($);
   try {
     const timeout = Symbol("timeout");
@@ -228,13 +235,13 @@ async function now($) {
   return typeof $.clock.now === "function" ? $.clock.now() : Date.now();
 }
 
-// Appends one JSONL event per call in the same shape `jao report` reads for Codex.
+// Appends one JSONL event per call in the same shape `jev-decision-kit report` reads for Codex.
 // Only models, reasons, counts and timings are written, never prompt or answer text.
 function metricsWriter($) {
   let chain = Promise.resolve();
   return (event) => {
     chain = chain.then(async () => {
-      if ((await $.env.get("JAO_CLAUDE_METRICS")) === "0") return;
+      if ((await kitEnv($, "CLAUDE_METRICS")) === "0") return;
       const file = (await envFile($)).replace(/[^/\\]*$/, ".local/claude.jsonl");
       let text = "";
       try { text = await $.fs.read(file); } catch { /* A missing log starts empty. */ }
@@ -265,7 +272,7 @@ async function shadowContinuation($, record, { turnId, prompt, previous, current
   const base = { client: "claude", kind: "continuation-shadow", requestId: `${turnId}:continuation`, taskId: turnId,
     currentModel: currentModel ?? "claude-session", contextTokens };
   const emit = async (event) => record?.({ at: await at(), ...base, ...event });
-  if ((await $.env.get("JAO_CLAUDE_CONTINUATION_SHADOW")) === "0") return;
+  if ((await kitEnv($, "CLAUDE_CONTINUATION_SHADOW")) === "0") return;
   if (!previous.previousRequest && !previous.previousReply) return emit({ reason: "no-previous-exchange" });
   if ([previous.previousRequest, previous.previousReply].some((text) => text && SENSITIVE_PATTERN.test(text))) {
     return emit({ reason: "sensitive-previous-exchange" });
@@ -281,14 +288,14 @@ async function shadowContinuation($, record, { turnId, prompt, previous, current
 }
 
 function statusOf(enabled, last) {
-  if (!enabled) return "Jev Agent Optimizer: off (set JAO_CLAUDE_AUTO=1 and restart Claude Code).";
-  if (!last) return "Jev Agent Optimizer: on; no user turn classified yet.";
+  if (!enabled) return "Jev Decision Kit: off (set JEV_KIT_CLAUDE_AUTO=1 and restart Claude Code).";
+  if (!last) return "Jev Decision Kit: on; no user turn classified yet.";
   const picked = last.model ? `${last.tier} → ${last.model} (${last.confidence})` : last.reason;
   const recommended = last.effort ? `; Jev recommended effort ${last.effort}` : "";
   const requested = last.requestedEffort ? `; requested effort ${last.requestedEffort}` : "";
   const mismatch = last.model && last.servedModel && !sameModel(last.servedModel, last.model) ? ` ≠ ${last.model}` : "";
   const served = last.servedModel ? `; API served ${last.servedModel}${mismatch}` : "";
-  return `Jev Agent Optimizer: ${picked}${recommended}${requested}${served}.`;
+  return `Jev Decision Kit: ${picked}${recommended}${requested}${served}.`;
 }
 
 const SAFE_MODEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
@@ -323,14 +330,14 @@ export function register(on) {
   });
 
   on("session.start", async ($, e, next) => {
-    enabled = (await $.env.get("JAO_CLAUDE_AUTO")) === "1";
-    footerEnabled = (await $.env.get("JAO_RESPONSE_FOOTER")) !== "0";
+    enabled = (await kitEnv($, "CLAUDE_AUTO")) === "1";
+    footerEnabled = (await kitEnv($, "RESPONSE_FOOTER")) !== "0";
     record = metricsWriter($);
-    await $.command.register({ name: "jao-route", description: "Show the last Jev route and API model" });
+    await $.command.register({ name: "jev-decision-kit-route", description: "Show the last Jev route and API model" });
     return next(e);
   });
 
-  on("command.run", { command: "jao-route" }, () => ({ text: statusOf(enabled, last) }));
+  on("command.run", { command: "jev-decision-kit-route" }, () => ({ text: statusOf(enabled, last) }));
 
   on("turn.start", async ($, e, next) => {
     if (enabled) {

@@ -1,11 +1,11 @@
 # 로컬 원문 수집 (파인튜닝용, 기본 꺼짐)
 
-모델 라우팅·검색 선별·기억 선별은 판정마다 요청 원문과 답을 `.local/`에 남기지 않습니다. 이 저장소를 파인튜닝(예: [Kev](https://github.com/jaredpalmer/kev))에 쓸 학습 데이터로 쓰려면 `JAO_CAPTURE=1`을 설정하세요. 기본값은 꺼짐입니다.
+모델 라우팅·검색 선별·기억 선별은 판정마다 요청 원문과 답을 `.local/`에 남기지 않습니다. 이 저장소를 파인튜닝(예: [Kev](https://github.com/jaredpalmer/kev))에 쓸 학습 데이터로 쓰려면 `JEV_KIT_CAPTURE=1`을 설정하세요. 기본값은 꺼짐입니다.
 
-- **Codex·CLI(`jao codex`/`serve`/`search`/`memory-filter`)**: `.env`의 `JAO_CAPTURE=1`이면 켜집니다(다른 `TYPESAFE_API_KEY` 로딩과 같은 방식).
-- **Claude 함수 훅**: `.env`가 아니라 `~/.claude/settings.json`의 `env` 객체에 넣어야 합니다. [고급 설치](installation.md#claude-code-마켓플레이스)의 다른 `JAO_CLAUDE_*` 값과 같은 자리입니다.
+- **Codex·CLI(`jev-decision-kit codex`/`serve`/`search`/`memory-filter`)**: `.env`의 `JEV_KIT_CAPTURE=1`이면 켜집니다(다른 `TYPESAFE_API_KEY` 로딩과 같은 방식).
+- **Claude 함수 훅**: `.env`가 아니라 `~/.claude/settings.json`의 `env` 객체에 넣어야 합니다. [고급 설치](installation.md#claude-code-마켓플레이스)의 다른 `JEV_KIT_CLAUDE_*` 값과 같은 자리입니다.
   ```json
-  { "env": { "JAO_CAPTURE": "1" } }
+  { "env": { "JEV_KIT_CAPTURE": "1" } }
   ```
   두 클라이언트를 같이 켜야 검색·라우팅 학습 데이터가 양쪽에서 모입니다.
 
@@ -49,4 +49,4 @@ node dist/cli.js export-training route --out .local/kev-route --holdout-percent 
 
 ## 지우기
 
-`.local/`은 git이 무시하는 로컬 전용 디렉터리입니다. 수집을 끄려면 `JAO_CAPTURE`를 지우거나 `0`으로 설정하고, 이미 쌓인 파일은 `.local/capture/`를 그냥 지우면 됩니다.
+`.local/`은 git이 무시하는 로컬 전용 디렉터리입니다. 수집을 끄려면 `JEV_KIT_CAPTURE`를 지우거나 `0`으로 설정하고, 이미 쌓인 파일은 `.local/capture/`를 그냥 지우면 됩니다.

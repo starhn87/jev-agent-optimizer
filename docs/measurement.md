@@ -27,7 +27,7 @@ node dist/cli.js report .local/codex-persistent.jsonl --since 2026-09-25T20:49:0
 
 ## 두 번째 분류기 병행 비교
 
-`serve`·`codex`에 `--shadow-classifier-endpoint http://127.0.0.1:8009/v1/systemone`을 주면 Jev가 판정하는 새 턴마다 같은 요청을 TypeSafe System One 호환 서버(예: 로컬 [Kev](https://github.com/jaredpalmer/kev))에도 보내고, 결과를 `classifier-shadow` 기록으로만 남깁니다. 실제 라우팅은 Jev 결과를 따르고 요청은 두 번째 분류기를 기다리지 않습니다. 모델 이름은 `--shadow-classifier-model`(기본 `kev-latest`)로, 키가 필요하면 `JAO_SHADOW_CLASSIFIER_KEY`로 지정합니다. TypeSafe 키는 이 주소로 보내지 않습니다. `report`의 `classifierShadow`에서 tier·실제 모델 일치율, `jev->shadow` tier 쌍별 건수, 지연을 확인합니다.
+`serve`·`codex`에 `--shadow-classifier-endpoint http://127.0.0.1:8009/v1/systemone`을 주면 Jev가 판정하는 새 턴마다 같은 요청을 TypeSafe System One 호환 서버(예: 로컬 [Kev](https://github.com/jaredpalmer/kev))에도 보내고, 결과를 `classifier-shadow` 기록으로만 남깁니다. 실제 라우팅은 Jev 결과를 따르고 요청은 두 번째 분류기를 기다리지 않습니다. 모델 이름은 `--shadow-classifier-model`(기본 `kev-latest`)로, 키가 필요하면 `JEV_KIT_SHADOW_CLASSIFIER_KEY`로 지정합니다. TypeSafe 키는 이 주소로 보내지 않습니다. `report`의 `classifierShadow`에서 tier·실제 모델 일치율, `jev->shadow` tier 쌍별 건수, 지연을 확인합니다.
 
 ## 에이전트 모델 비용 추정
 
