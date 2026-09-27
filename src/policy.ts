@@ -1,4 +1,4 @@
-import type { Effort, RouteChoice, RouteQuery, RouteResult, RouterSettings } from "./types.js";
+import type { Effort, RouteChoice, RouteQuery, RouteResult, RouterSettings, Tier } from "./types.js";
 
 const EFFORTS: readonly Effort[] = ["low", "medium", "high", "xhigh", "max"];
 export const MAX_CLASSIFIER_PROMPT_CHARS = 1600;
@@ -31,7 +31,7 @@ const CONTINUATIONS = [
   /^(?:please )?(?:continue|go ahead|proceed|do it|try again)(?: please)?$/u,
 ];
 
-function isContinuation(prompt: string): boolean {
+export function isContinuation(prompt: string): boolean {
   const words = prompt.toLowerCase().replace(/[.!?,。！？\s]+/gu, " ").trim().split(" ");
   while (words.length && ACKNOWLEDGEMENTS.has(words[0]!)) words.shift();
   return words.length === 0 || CONTINUATIONS.some((pattern) => pattern.test(words.join(" ")));
@@ -93,6 +93,24 @@ export function shadowRoute(query: RouteQuery, choice: RouteChoice, applied: Rou
     ...(settings.minimumDowngradeConfidence === undefined ? {} : { minimumDowngradeConfidence: Math.min(settings.minimumDowngradeConfidence, threshold) }),
   }, allowedModels);
   return alternative.model === applied.model ? null : alternative;
+}
+
+// Switching models on a continuation forfeits the warm prompt cache, so a downgrade
+// is only worth it while the re-sent context is small; an upgrade is a quality call.
+export const CONTINUATION_DOWNGRADE_MAX_CONTEXT_TOKENS = 20_000;
+const TIER_ORDER: Tier[] = ["fast", "balanced", "strong"];
+
+export function continuationRoute(query: RouteQuery, choice: RouteChoice, settings: RouterSettings,
+  allowedModels?: ReadonlySet<string>): { model: string; effort?: Effort; tier: Tier; direction: "upgrade" | "downgrade" } | null {
+  if (choice.confidence < settings.minimumConfidence) return null;
+  const model = settings.models[choice.tier];
+  if (model === query.currentModel || (allowedModels?.size && !allowedModels.has(model))) return null;
+  const current = TIER_ORDER.findIndex((tier) => settings.models[tier] === query.currentModel);
+  const direction = current < 0 || TIER_ORDER.indexOf(choice.tier) > current ? "upgrade" : "downgrade";
+  if (direction === "downgrade" && (query.contextTokens > CONTINUATION_DOWNGRADE_MAX_CONTEXT_TOKENS ||
+    (settings.minimumDowngradeConfidence !== undefined && choice.confidence < settings.minimumDowngradeConfidence))) return null;
+  const effort = effortFromScore(choice.effortScore);
+  return { model, tier: choice.tier, direction, ...(effort ? { effort } : {}) };
 }
 
 export function chooseModel(

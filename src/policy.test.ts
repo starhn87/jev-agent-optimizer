@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chooseModel, defaultSettings, localRoute, routingGuard, shadowRoute } from "./policy.js";
+import { chooseModel, continuationRoute, defaultSettings, localRoute, routingGuard, shadowRoute } from "./policy.js";
 
 const settings = defaultSettings("auto");
 const query = { prompt: "이 함수의 타입 오류를 수정해줘", currentModel: "gpt-6-sol", contextTokens: 2000 };
@@ -94,4 +94,15 @@ test("a shadow fast confidence reports the route it would take without changing 
   assert.equal(shadowRoute(query, tooLow, chooseModel(query, tooLow, shadowed), shadowed), null);
   const balanced = { tier: "balanced" as const, confidence: 0.75 };
   assert.equal(shadowRoute(query, balanced, chooseModel(query, balanced, shadowed), shadowed), null);
+});
+
+test("a continuation upgrades on confidence but downgrades only while the context is small", () => {
+  const sol = { ...query, currentModel: "gpt-6-sol" };
+  assert.equal(continuationRoute({ ...sol, contextTokens: 150_000 }, { tier: "strong", confidence: 0.85 }, settings)?.direction, "upgrade");
+  assert.equal(continuationRoute({ ...sol, contextTokens: 150_000 }, { tier: "fast", confidence: 0.95 }, settings), null);
+  assert.equal(continuationRoute({ ...sol, contextTokens: 10_000 }, { tier: "fast", confidence: 0.95 }, settings)?.model, "gpt-6-luna");
+  assert.equal(continuationRoute({ ...sol, contextTokens: 10_000 }, { tier: "fast", confidence: 0.85 },
+    { ...settings, minimumDowngradeConfidence: 0.9 }), null);
+  assert.equal(continuationRoute(sol, { tier: "strong", confidence: 0.6 }, settings), null);
+  assert.equal(continuationRoute(sol, { tier: "balanced", confidence: 0.99 }, settings), null);
 });

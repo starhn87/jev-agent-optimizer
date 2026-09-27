@@ -92,3 +92,20 @@ test("--since drops older events and shadow routes are priced on the same task's
   assert.equal(summarizeMetrics(input).total, 2);
   assert.equal(summarizeMetrics(input).shadow.appliedUsd, null);
 });
+
+test("continuation shadows are summarized apart from routing decisions", () => {
+  const input = [
+    { at: "2026-09-27T00:00:00Z", client: "codex", kind: "continuation-shadow", currentModel: "sol", contextTokens: 1,
+      recommendedTier: "strong", confidence: 0.9, shadowModel: "astra", direction: "upgrade", latencyMs: 500, jevInputTokens: 1000, reason: "would-switch" },
+    { at: "2026-09-27T00:00:01Z", client: "codex", kind: "continuation-shadow", currentModel: "sol", contextTokens: 1,
+      recommendedTier: "balanced", confidence: 0.9, latencyMs: 400, reason: "would-keep" },
+    { at: "2026-09-27T00:00:02Z", client: "codex", kind: "continuation-shadow", currentModel: "sol", contextTokens: 1, reason: "no-previous-exchange" },
+    { at: "2026-09-27T00:00:03Z", client: "codex", kind: "continuation-shadow", currentModel: "sol", contextTokens: 1, latencyMs: 1200, reason: "jev-unavailable" },
+  ].map((event) => JSON.stringify(event)).join("\n");
+  const summary = summarizeMetrics(input);
+  assert.equal(summary.total, 0);
+  assert.equal(summary.observedResponses, 0);
+  assert.deepEqual(summary.continuationShadow, { evaluated: 2, upgrades: 1, downgrades: 0, unchanged: 1, errors: 1,
+    skipped: { "no-previous-exchange": 1 }, byModel: { astra: 1 }, p95LatencyMs: 1200 });
+  assert.equal(summary.jevInputTokens, 1000);
+});

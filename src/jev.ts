@@ -22,6 +22,8 @@ export const EFFORT_CRITERIA = [
   "Open-ended or high-stakes work requiring the deepest reasoning.",
 ];
 
+export const CONTINUATION_NOTE = " The user turn continues earlier work: judge the work that remains, using previous_request (what was asked) and previous_reply_end (where the last answer stopped).";
+
 const TIERS: ReadonlySet<string> = new Set(["fast", "balanced", "strong"]);
 
 export async function askJev(query: RouteQuery, options: JevOptions = {}): Promise<RouteChoice> {
@@ -34,11 +36,13 @@ export async function askJev(query: RouteQuery, options: JevOptions = {}): Promi
       user_turn: query.prompt.slice(0, MAX_CLASSIFIER_PROMPT_CHARS),
       approximate_context_tokens: query.contextTokens,
       current_model: query.currentModel,
+      ...(query.previousRequest ? { previous_request: query.previousRequest } : {}),
+      ...(query.previousReply ? { previous_reply_end: query.previousReply } : {}),
     },
     questions: {
       tier: {
         type: "choice",
-        instructions: "Choose the least expensive model tier that can reliably complete this user turn. Assess the current requested work. Conversation length and the previous model are not evidence of task difficulty. Use strong only when the current task clearly requires it. If context is insufficient to judge, choose balanced.",
+        instructions: `Choose the least expensive model tier that can reliably complete this user turn. Assess the current requested work. Conversation length and the previous model are not evidence of task difficulty. Use strong only when the current task clearly requires it. If context is insufficient to judge, choose balanced.${query.previousRequest || query.previousReply ? CONTINUATION_NOTE : ""}`,
         criteria: TIER_CRITERIA,
       },
       effort: {

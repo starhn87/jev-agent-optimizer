@@ -361,3 +361,50 @@ test("auto mode logs the shadow fast route while sending the balanced model", as
   assert.equal(events[0]!.shadowModel, "gpt-6-luna");
   assert.equal(events[0]!.shadowEffort, "medium");
 });
+
+test("a continuation keeps its model while the earlier exchange is judged and logged as a shadow route", async () => {
+  const queries: import("./types.js").RouteQuery[] = [];
+  const shadows: import("./types.js").ContinuationShadowEvent[] = [];
+  let calls = 0;
+  const router = new CodexRouter({ settings: { ...defaultSettings("auto"), continuationShadow: true },
+    classify: async (query) => {
+      queries.push(query);
+      calls += 1;
+      return calls === 1 ? { tier: "balanced", confidence: 0.95, effortScore: 2 } : { tier: "strong", confidence: 0.9, effortScore: 3 };
+    }, onShadow: (event) => shadows.push(event) });
+  router.ingestCatalog(catalog);
+  assert.equal((await router.route(userBody("이 모듈 전체를 새 구조로 리팩터링해줘"))).model, "gpt-6-sol");
+  const body = userBody("계속 진행해");
+  body.input = [
+    { role: "user", content: [{ type: "input_text", text: "<environment_context>cwd</environment_context>" }] },
+    { role: "user", content: [{ type: "input_text", text: "이 모듈 전체를 새 구조로 리팩터링해줘" }] },
+    { role: "assistant", content: [{ type: "output_text", text: "세 파일 중 한 파일을 옮겼습니다." }] },
+    { role: "user", content: [{ type: "input_text", text: "계속" }] },
+    { role: "assistant", content: [{ type: "output_text", text: "두 번째 파일도 옮겼습니다." }] },
+    ...(body.input as unknown[]),
+  ];
+  assert.equal((await router.route(body)).model, "gpt-6-sol");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(queries[1]!.previousRequest, "이 모듈 전체를 새 구조로 리팩터링해줘");
+  assert.equal(queries[1]!.previousReply, "두 번째 파일도 옮겼습니다.");
+  assert.equal(shadows.length, 1);
+  assert.equal(shadows[0]!.shadowModel, "gpt-6-astra");
+  assert.equal(shadows[0]!.direction, "upgrade");
+  assert.equal(shadows[0]!.currentModel, "gpt-6-sol");
+});
+
+test("continuation shadows skip sensitive earlier text and are off unless enabled", async () => {
+  const shadows: import("./types.js").ContinuationShadowEvent[] = [];
+  let calls = 0;
+  const classify = async () => { calls += 1; return { tier: "balanced" as const, confidence: 0.95 }; };
+  const body = userBody("계속해");
+  body.input = [{ role: "user", content: [{ type: "input_text", text: "password: hunter22 를 넣어서 로그인 고쳐줘" }] },
+    ...(body.input as unknown[])];
+  const on = new CodexRouter({ settings: { ...defaultSettings("auto"), continuationShadow: true }, classify, onShadow: (event) => shadows.push(event) });
+  await on.route(body);
+  assert.equal(shadows[0]!.reason, "sensitive-previous-exchange");
+  const off = new CodexRouter({ settings: defaultSettings("auto"), classify, onShadow: (event) => shadows.push(event) });
+  await off.route(body);
+  assert.equal(shadows.length, 1);
+  assert.equal(calls, 0);
+});

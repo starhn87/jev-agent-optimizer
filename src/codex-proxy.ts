@@ -3,12 +3,12 @@ import https from "node:https";
 import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 import { askJev } from "./jev.js";
-import { codexSessionKey, estimateContextTokens, latestUserTurn, type CodexBody } from "./codex-request.js";
+import { codexSessionKey, estimateContextTokens, latestUserTurn, previousExchange, type CodexBody } from "./codex-request.js";
 import { CodexResponseObserver, type ObservedResponse } from "./codex-response.js";
-import { chooseModel, effortFromScore, fallbackModel, localRoute, shadowRoute } from "./policy.js";
+import { chooseModel, continuationRoute, effortFromScore, fallbackModel, localRoute, SENSITIVE_PATTERN, shadowRoute } from "./policy.js";
 import { readRecentStatus, renderStatusPage } from "./status.js";
 import { allowsResponseFooter, ResponseFooter, withoutResponseFooters } from "./response-footer.js";
-import type { DecisionEvent, ResponseObservationEvent, RouteChoice, RouteQuery, RouteResult, RouterSettings } from "./types.js";
+import type { ContinuationShadowEvent, DecisionEvent, ResponseObservationEvent, RouteChoice, RouteQuery, RouteResult, RouterSettings } from "./types.js";
 
 const CHATGPT_CODEX_URL = "https://chatgpt.com/backend-api/codex";
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
@@ -22,6 +22,7 @@ export type ProxyOptions = {
   classify?: (query: RouteQuery) => Promise<RouteChoice>;
   onDecision?: (event: DecisionEvent) => void;
   onObservation?: (event: ResponseObservationEvent) => void;
+  onShadow?: (event: ContinuationShadowEvent) => void;
   responseFooter?: boolean;
 };
 
@@ -63,6 +64,33 @@ export class CodexRouter {
         requestedModel, ...(requestedEffort ? { requestedEffort } : {}), ...observed });
     } catch { this.warnMetricsFailure(); }
     finally { this.requestTasks.delete(requestId); }
+  }
+
+  // Runs beside the request: the continuation keeps its model, so the user never waits for Jev.
+  private shadowContinuation(body: CodexBody, query: RouteQuery, requestId?: string): void {
+    const { settings } = this.options;
+    const started = Date.now();
+    const base = { client: "codex" as const, kind: "continuation-shadow" as const, requestId,
+      ...(requestId && this.requestTasks.has(requestId) ? { taskId: this.requestTasks.get(requestId) } : {}),
+      currentModel: query.currentModel, contextTokens: query.contextTokens };
+    const emit = (event: Omit<ContinuationShadowEvent, "at" | keyof typeof base>): void => {
+      try { this.options.onShadow?.({ at: new Date().toISOString(), ...base, ...event }); } catch { this.warnMetricsFailure(); }
+    };
+    const previous = previousExchange(body);
+    if (!previous.previousRequest && !previous.previousReply) return emit({ reason: "no-previous-exchange" });
+    if ([previous.previousRequest, previous.previousReply].some((text) => text && SENSITIVE_PATTERN.test(text))) {
+      return emit({ reason: "sensitive-previous-exchange" });
+    }
+    const contextual = { ...query, ...previous };
+    void this.classify(contextual).then((choice) => {
+      const route = continuationRoute(contextual, choice, settings, this.allowedModels());
+      const recommendedEffort = effortFromScore(choice.effortScore);
+      emit({ recommendedTier: choice.tier, confidence: choice.confidence, ...(recommendedEffort ? { recommendedEffort } : {}),
+        ...(route ? { shadowModel: route.model, direction: route.direction,
+          ...(route.effort ? { shadowEffort: this.effectiveEffort(route.model, route.effort) } : {}) } : {}),
+        latencyMs: Date.now() - started, ...(choice.inputTokens !== undefined ? { jevInputTokens: choice.inputTokens } : {}),
+        reason: route ? "would-switch" : "would-keep" });
+    }).catch(() => emit({ latencyMs: Date.now() - started, reason: "jev-unavailable" }));
   }
 
   private warnMetricsFailure(): void {
@@ -158,6 +186,9 @@ export class CodexRouter {
           : { model: requested, reason: "forced-model" };
       } else if (local) {
         result = settings.mode === "shadow" ? { model: currentModel, reason: local.reason } : local;
+        if (settings.mode === "auto" && settings.continuationShadow && local.reason === "context-follow-up") {
+          this.shadowContinuation(body, query, requestId);
+        }
         if (settings.mode === "auto") {
           if (local.reason === "context-follow-up") selectedEffort = previous?.effort ?? (settings.autoEffort ? "medium" : incomingEffort);
           else if (settings.autoEffort) selectedEffort = local.effort;

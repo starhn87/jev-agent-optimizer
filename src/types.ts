@@ -15,6 +15,9 @@ export type RouteQuery = {
   prompt: string;
   currentModel: string;
   contextTokens: number;
+  // Earlier exchange, sent only when judging a continuation.
+  previousRequest?: string;
+  previousReply?: string;
 };
 
 export type RouteResult = {
@@ -36,6 +39,8 @@ export type RouterSettings = {
   minimumDowngradeConfidence?: number;
   // Per-tier confidence to evaluate in the log only; the applied route is unchanged.
   shadowConfidence?: Partial<Record<Tier, number>>;
+  // Judge continuations with the earlier exchange and log the route; the model is kept.
+  continuationShadow?: boolean;
 };
 
 export type DecisionEvent = {
@@ -73,4 +78,24 @@ export type ResponseObservationEvent = {
   outputTokens?: number;
 };
 
-export type MetricsEvent = DecisionEvent | ResponseObservationEvent;
+// A continuation judged with the earlier exchange, logged only: the applied route kept the model.
+export type ContinuationShadowEvent = {
+  at: string;
+  client: "codex" | "claude";
+  kind: "continuation-shadow";
+  requestId?: string;
+  taskId?: string;
+  currentModel: string;
+  contextTokens: number;
+  recommendedTier?: Tier;
+  confidence?: number;
+  recommendedEffort?: Effort;
+  shadowModel?: string;
+  shadowEffort?: string;
+  direction?: "upgrade" | "downgrade";
+  latencyMs?: number;
+  jevInputTokens?: number;
+  reason: string;
+};
+
+export type MetricsEvent = DecisionEvent | ResponseObservationEvent | ContinuationShadowEvent;

@@ -257,3 +257,37 @@ test("metrics can be turned off", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(h.metrics(), []);
 });
+
+test("a continuation keeps the model while Jev judges the earlier exchange for the log", async () => {
+  const h = harness({ answer: "balanced" });
+  await h.start("t1", "Refactor the whole router module into the new structure.");
+  assert.equal((await h.step("t1")).sent.model, "claude-sonnet-5");
+  await h.complete("t1", { answer: "Moved one of three files." });
+  h.$.http.fetch = async (url, init) => {
+    h.requests.push({ url, init });
+    return { ok: true, text: JSON.stringify({ usage: { input_tokens: 700 }, answers: {
+      tier: { type: "choice", choice: "strong", confidence: 0.9 }, effort: { type: "score", score: 3 } } }) };
+  };
+  await h.start("t2", "계속 진행해");
+  assert.equal((await h.step("t2")).sent.model, "claude-sonnet-5");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const body = JSON.parse(h.requests[1].init.body);
+  assert.equal(body.state.previous_request, "Refactor the whole router module into the new structure.");
+  assert.equal(body.state.previous_reply_end, "Moved one of three files.");
+  assert.match(body.questions.tier.instructions, /continues earlier work/);
+  const shadow = h.metrics().find((event) => event.kind === "continuation-shadow");
+  assert.equal(shadow.shadowModel, "claude-opus-5");
+  assert.equal(shadow.direction, "upgrade");
+  assert.equal(shadow.currentModel, "claude-sonnet-5");
+  assert.equal(shadow.jevInputTokens, 700);
+  assert.doesNotMatch(h.files.get("/router/claude-mod/../.local/claude.jsonl"), /Refactor|Moved/);
+});
+
+test("longer English continuations also keep the model, and a first-turn continuation logs no exchange", async () => {
+  const h = harness({ answer: "strong" });
+  await h.start("t", "please continue");
+  assert.equal(h.requests.length, 0);
+  assert.equal((await h.step("t")).sent.model, "claude-sonnet-5");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(h.metrics().find((event) => event.kind === "continuation-shadow").reason, "no-previous-exchange");
+});

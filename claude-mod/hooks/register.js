@@ -83,14 +83,20 @@ async function modelFor($, tier) {
   return await $.env.get(name) || MODELS[tier];
 }
 
-export function jevRequest(prompt) {
+// Mirrors CONTINUATION_NOTE in src/jev.ts.
+export const CONTINUATION_NOTE = " The user turn continues earlier work: judge the work that remains, using previous_request (what was asked) and previous_reply_end (where the last answer stopped).";
+
+export function jevRequest(prompt, previous = {}) {
+  const continued = Boolean(previous.previousRequest || previous.previousReply);
   return {
     model: "jev-latest",
-    state: { user_turn: prompt.slice(0, MAX_PROMPT_CHARS) },
+    state: { user_turn: prompt.slice(0, MAX_PROMPT_CHARS),
+      ...(previous.previousRequest ? { previous_request: previous.previousRequest } : {}),
+      ...(previous.previousReply ? { previous_reply_end: previous.previousReply } : {}) },
     questions: {
       tier: {
         type: "choice",
-        instructions: "Choose the least expensive Claude model tier that can reliably complete this user turn. Assess the requested work, not message length. If context is insufficient, choose balanced.",
+        instructions: `Choose the least expensive Claude model tier that can reliably complete this user turn. Assess the requested work, not message length. If context is insufficient, choose balanced.${continued ? CONTINUATION_NOTE : ""}`,
         criteria: {
           fast: "Simple formatting, direct facts, small unambiguous edits, or routine replies with low risk.",
           balanced: "Typical coding, writing, analysis, and multi-step tasks requiring sound judgment.",
@@ -112,22 +118,39 @@ export function jevRequest(prompt) {
   };
 }
 
-async function routeTurn($, text, contextTokens) {
-  const prompt = text.trim();
-  if (SENSITIVE_PATTERN.test(prompt)) return { reason: "sensitive prompt" };
-  if (isSimpleTurn(prompt)) {
-    if (contextTokens > FAST_PATH_MAX_CONTEXT_TOKENS) return { reason: "simple turn; kept warm cache" };
-    return { tier: "fast", confidence: 1, effort: "low", model: await modelFor($, "fast"), reason: "simple turn" };
-  }
-  if (prompt.length < 12) return { reason: "short or empty prompt" };
+// Mirrors isContinuation in src/policy.ts.
+const ACKNOWLEDGEMENTS = new Set(["응", "네", "예", "좋아", "좋아요", "오케이", "알겠어", "ok", "okay", "yes"]);
+const CONTINUATIONS = [
+  /^(?:(?:그대로|이어서|계속) )?(?:계속|진행)(?:해(?:\s?줘|주세요|요)?)?$/u,
+  /^(?:(?:그대로|이어서) )?(?:해\s?줘|다시\s?해(?:\s?줘|주세요|요)?)$/u,
+  /^(?:그|그거|그 문장|이전 답변|위 문장)(?:을|를)? (?:고쳐줘|수정해줘)$/u,
+  /^(?:please )?(?:continue|go ahead|proceed|do it|try again)(?: please)?$/u,
+];
 
+export function isContinuation(prompt) {
+  const words = prompt.toLowerCase().replace(/[.!?,。！？\s]+/gu, " ").trim().split(" ");
+  while (words.length && ACKNOWLEDGEMENTS.has(words[0])) words.shift();
+  return words.length === 0 || CONTINUATIONS.some((pattern) => pattern.test(words.join(" ")));
+}
+
+const TIER_ORDER = ["fast", "balanced", "strong"];
+
+// Mirrors continuationRoute in src/policy.ts (without the Codex-only downgrade confidence).
+export function continuationRoute(currentModel, contextTokens, choice, models = MODELS) {
+  if (choice.confidence < CONFIDENCE_FLOOR) return null;
+  const model = models[choice.tier];
+  if (model === currentModel) return null;
+  const current = TIER_ORDER.findIndex((tier) => models[tier] === currentModel);
+  const direction = current < 0 || TIER_ORDER.indexOf(choice.tier) > current ? "upgrade" : "downgrade";
+  if (direction === "downgrade" && contextTokens > FAST_PATH_MAX_CONTEXT_TOKENS) return null;
+  return { model, tier: choice.tier, direction, ...(choice.effort ? { effort: choice.effort } : {}) };
+}
+
+async function callJev($, request) {
   const key = await apiKey($);
-  if (!key) return { reason: "TypeSafe key unavailable" };
-
+  if (!key) return { error: "TypeSafe key unavailable" };
   const endpoint = await $.env.get("JAO_TYPESAFE_ENDPOINT") || ENDPOINT;
-  const request = jevRequest(prompt);
   const started = await now($);
-
   try {
     const timeout = Symbol("timeout");
     const response = await Promise.race([
@@ -139,22 +162,35 @@ async function routeTurn($, text, contextTokens) {
       $.clock.sleep(TIMEOUT_MS).then(() => timeout),
     ]);
     const latencyMs = (await now($)) - started;
-    if (response === timeout) return { reason: "Jev timeout", jevError: true, latencyMs };
-    if (!response.ok) return { reason: `Jev HTTP ${response.status}`, jevError: true, latencyMs };
+    if (response === timeout) return { error: "Jev timeout", latencyMs };
+    if (!response.ok) return { error: `Jev HTTP ${response.status}`, latencyMs };
     const body = JSON.parse(response.text);
-    const choice = choiceFromJev(body);
     const tokens = body?.usage?.input_tokens;
-    const jevInputTokens = Number.isSafeInteger(tokens) && tokens >= 0 ? tokens : undefined;
-    const measured = { latencyMs, ...(jevInputTokens === undefined ? {} : { jevInputTokens }) };
-    if (!choice) return { reason: "Jev answer invalid", jevError: true, ...measured };
-    if (choice.confidence < CONFIDENCE_FLOOR) {
-      return { tier: choice.tier, confidence: choice.confidence, effort: choice.effort,
-        reason: "Jev tier confidence below 0.8", ...measured };
-    }
-    return { ...choice, model: await modelFor($, choice.tier), reason: "Jev choice", ...measured };
+    const measured = { latencyMs, ...(Number.isSafeInteger(tokens) && tokens >= 0 ? { jevInputTokens: tokens } : {}) };
+    const choice = choiceFromJev(body);
+    return choice ? { choice, ...measured } : { error: "Jev answer invalid", ...measured };
   } catch {
-    return { reason: "Jev request failed", jevError: true };
+    return { error: "Jev request failed" };
   }
+}
+
+async function routeTurn($, text, contextTokens) {
+  const prompt = text.trim();
+  if (SENSITIVE_PATTERN.test(prompt)) return { reason: "sensitive prompt" };
+  if (isSimpleTurn(prompt)) {
+    if (contextTokens > FAST_PATH_MAX_CONTEXT_TOKENS) return { reason: "simple turn; kept warm cache" };
+    return { tier: "fast", confidence: 1, effort: "low", model: await modelFor($, "fast"), reason: "simple turn" };
+  }
+  if (isContinuation(prompt)) return { reason: "continuation" };
+  if (prompt.length < 12) return { reason: "short or empty prompt" };
+
+  const { choice, error, ...measured } = await callJev($, jevRequest(prompt));
+  if (error) return { reason: error, ...(error === "TypeSafe key unavailable" ? {} : { jevError: true }), ...measured };
+  if (choice.confidence < CONFIDENCE_FLOOR) {
+    return { tier: choice.tier, confidence: choice.confidence, effort: choice.effort,
+      reason: "Jev tier confidence below 0.8", ...measured };
+  }
+  return { ...choice, model: await modelFor($, choice.tier), reason: "Jev choice", ...measured };
 }
 
 async function now($) {
@@ -190,6 +226,29 @@ function decisionEvent(at, turnId, route) {
     requestId: `${turnId}:decision`, taskId: turnId, reason: route.reason };
 }
 
+const PREVIOUS_CHARS = 600;
+
+// Runs beside the turn, which keeps its model: logs what the earlier exchange suggests.
+async function shadowContinuation($, record, { turnId, prompt, previous, currentModel, contextTokens }) {
+  const at = async () => new Date(await now($)).toISOString();
+  const base = { client: "claude", kind: "continuation-shadow", requestId: `${turnId}:continuation`, taskId: turnId,
+    currentModel: currentModel ?? "claude-session", contextTokens };
+  const emit = async (event) => record?.({ at: await at(), ...base, ...event });
+  if ((await $.env.get("JAO_CLAUDE_CONTINUATION_SHADOW")) === "0") return;
+  if (!previous.previousRequest && !previous.previousReply) return emit({ reason: "no-previous-exchange" });
+  if ([previous.previousRequest, previous.previousReply].some((text) => text && SENSITIVE_PATTERN.test(text))) {
+    return emit({ reason: "sensitive-previous-exchange" });
+  }
+  const { choice, error, ...measured } = await callJev($, jevRequest(prompt, previous));
+  if (error) return emit({ ...measured, reason: error === "TypeSafe key unavailable" ? "key-unavailable" : "jev-unavailable" });
+  const models = { fast: await modelFor($, "fast"), balanced: await modelFor($, "balanced"), strong: await modelFor($, "strong") };
+  const route = currentModel ? continuationRoute(currentModel, contextTokens, choice, models) : null;
+  return emit({ recommendedTier: choice.tier, confidence: choice.confidence,
+    ...(choice.effort ? { recommendedEffort: choice.effort } : {}),
+    ...(route ? { shadowModel: route.model, direction: route.direction, ...(route.effort ? { shadowEffort: route.effort } : {}) } : {}),
+    ...measured, reason: route ? "would-switch" : "would-keep" });
+}
+
 function statusOf(enabled, last) {
   if (!enabled) return "Jev Agent Optimizer: off (set JAO_CLAUDE_AUTO=1 and restart Claude Code).";
   if (!last) return "Jev Agent Optimizer: on; no user turn classified yet.";
@@ -222,6 +281,7 @@ export function register(on) {
   let last = null;
   let contextTokens = 0;
   let record = null;
+  const previous = {};
 
   // Drawn only: the prompt footer's mode label never enters the transcript, so the
   // model cannot imitate it on a later turn. (Terminal and desktop surfaces.)
@@ -248,6 +308,14 @@ export function register(on) {
         route = await routeTurn($, e.text, contextTokens);
       } catch {
         route = { reason: "router error" };
+      }
+      const prompt = e.text.trim();
+      if (route.reason === "continuation") {
+        void shadowContinuation($, record, { turnId: e.turnId, prompt, previous: { ...previous },
+          currentModel: last?.requestedModel, contextTokens }).catch(() => {});
+      } else if (prompt) {
+        previous.previousRequest = prompt.slice(0, PREVIOUS_CHARS);
+        delete previous.previousReply;
       }
       route.startedAt = await now($);
       route.steps = 0;
@@ -292,6 +360,9 @@ export function register(on) {
   on("turn.complete", async ($, e, next) => {
     const result = await next(e);
     if (e.agentId !== undefined) return result;
+    if (e.reason === "answer" && typeof e.answer === "string" && e.answer.trim()) {
+      previous.previousReply = e.answer.trim().slice(-PREVIOUS_CHARS);
+    }
     const route = routes.get(e.turnId);
     routes.delete(e.turnId);
     if (!enabled || !footerEnabled || !route || e.reason !== "answer" || !e.answer) return result;

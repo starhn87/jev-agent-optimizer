@@ -24,7 +24,8 @@ export function tasksFromMetrics(text: string, prices?: PriceTable): Task[] {
   for (const line of text.split("\n")) {
     let event: MetricsEvent;
     try { event = JSON.parse(line) as MetricsEvent; } catch { continue; }
-    if (!event || typeof event !== "object" || typeof event.taskId !== "string") continue;
+    if (!event || typeof event !== "object" || typeof event.taskId !== "string" ||
+      ("kind" in event && event.kind === "continuation-shadow")) continue;
     const task = tasks.get(event.taskId) ?? { responses: 0, usd: prices ? 0 : null };
     tasks.set(event.taskId, task);
     const at = Date.parse(event.at);

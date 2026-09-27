@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isContinuation } from "./policy.js";
 
 export type CodexBody = Record<string, unknown>;
 export type UserTurn = { prompt: string; hasNonText: boolean };
@@ -35,6 +36,39 @@ export function latestUserTurn(body: CodexBody): UserTurn | null {
     return { prompt, hasNonText };
   }
   return null;
+}
+
+const PREVIOUS_CHARS = 600;
+
+function messageText(item: Record<string, unknown>): string {
+  const parts = Array.isArray(item.content) ? item.content : [item.content];
+  return parts.map((part) => typeof part === "string" ? part
+    : asRecord(part) && typeof asRecord(part)!.text === "string" ? asRecord(part)!.text as string : "").join("\n").trim();
+}
+
+// The request and final answer before the latest user turn, clipped: the user request's
+// start (what was asked) and the answer's end (where the work stopped).
+export function previousExchange(body: CodexBody): { previousRequest?: string; previousReply?: string } {
+  if (!Array.isArray(body.input)) return {};
+  const items = body.input as unknown[];
+  let index = items.length - 1;
+  while (index >= 0 && asRecord(items[index])?.role !== "user") index -= 1;
+  let previousReply: string | undefined;
+  for (index -= 1; index >= 0; index -= 1) {
+    const item = asRecord(items[index]);
+    if (!item) continue;
+    if (item.role === "assistant" && previousReply === undefined && (item.phase === undefined || item.phase === "final_answer")) {
+      const text = messageText(item);
+      if (text) previousReply = text.slice(-PREVIOUS_CHARS);
+    }
+    if (item.role === "user") {
+      const text = messageText(item);
+      // Skip injected context and earlier "continue" turns to reach the request being continued.
+      if (!text || /^<(?:environment_context|user_instructions)>|^# AGENTS\.md/u.test(text) || isContinuation(text)) continue;
+      return { previousRequest: text.slice(0, PREVIOUS_CHARS), ...(previousReply ? { previousReply } : {}) };
+    }
+  }
+  return previousReply ? { previousReply } : {};
 }
 
 export function codexSessionKey(body: CodexBody): string | undefined {

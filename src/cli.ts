@@ -62,6 +62,10 @@ function parseOptions(args: string[]): Parsed {
       if (!Number.isFinite(confidence) || confidence <= 0 || confidence > 1) throw new Error(`invalid shadow confidence: ${value}`);
       settings.shadowConfidence = { ...settings.shadowConfidence, fast: confidence };
     }
+    else if (flag === "--continuation-shadow") {
+      if (value !== "on" && value !== "off") throw new Error("--continuation-shadow must be on or off");
+      settings.continuationShadow = value === "on";
+    }
     else if (flag === "--keychain-service") keychainService = value;
     else if (flag === "--keychain-account") keychainAccount = value;
     else if (flag === "--port") {
@@ -108,7 +112,8 @@ async function runCodex(parsed: Parsed): Promise<void> {
   const proxy = await startCodexProxy({ settings: parsed.settings, classify,
     responseFooter: parsed.responseFooter,
     statusFile: parsed.metricsFile,
-    onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile) });
+    onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile),
+    onShadow: (event) => writeMetric(event, parsed.metricsFile) });
   const baseUrl = `http://127.0.0.1:${proxy.port}`;
   if (parsed.settings.mode === "auto" && !spec && !process.env.TYPESAFE_API_KEY && !process.env.JEV_API_KEY) {
     process.stderr.write("[jao] No TypeSafe key; Auto will retain the current model.\n");
@@ -130,7 +135,8 @@ async function runServer(parsed: Parsed): Promise<void> {
   const proxy = await startCodexProxy({ settings: parsed.settings, port: parsed.port ?? 8765,
     responseFooter: parsed.responseFooter,
     statusFile: parsed.metricsFile,
-    classify, onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile) });
+    classify, onDecision: (event) => writeMetric(event, parsed.metricsFile), onObservation: (event) => writeMetric(event, parsed.metricsFile),
+    onShadow: (event) => writeMetric(event, parsed.metricsFile) });
   process.stdout.write(`Jev Agent Optimizer listening on http://127.0.0.1:${proxy.port}\n`);
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
@@ -191,7 +197,7 @@ function help(): void {
     `Router options: --mode pass|force|shadow|auto, --force-model ID,\n` +
     `  --baseline-model ID, --fast-model ID, --balanced-model ID,\n` +
     `  --strong-model ID, --downgrade-confidence 0..1, --shadow-fast-confidence 0..1 (log only),\n` +
-    `  --metrics FILE, --port PORT,\n` +
+    `  --continuation-shadow on|off (log only), --metrics FILE, --port PORT,\n` +
     `  --keychain-service NAME, --keychain-account USER, --response-footer on|off\n`);
 }
 

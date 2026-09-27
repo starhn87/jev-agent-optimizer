@@ -31,6 +31,17 @@ export type MetricsSummary = {
     appliedUsd: number | null;
     shadowUsd: number | null;
   };
+  // Continuations judged with the earlier exchange while the applied route kept the model.
+  continuationShadow: {
+    evaluated: number;
+    upgrades: number;
+    downgrades: number;
+    unchanged: number;
+    errors: number;
+    skipped: Record<string, number>;
+    byModel: Record<string, number>;
+    p95LatencyMs: number | null;
+  };
   observedResponses: number;
   differentModelIds: number;
   observedInputTokens: number;
@@ -63,10 +74,28 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
     if (!line.trim()) return [];
     try { return [JSON.parse(line) as MetricsEvent]; } catch { return []; }
   }).filter((event) => since === undefined || Date.parse(event.at) >= since);
+  const continuation: MetricsSummary["continuationShadow"] = { evaluated: 0, upgrades: 0, downgrades: 0, unchanged: 0,
+    errors: 0, skipped: {}, byModel: {}, p95LatencyMs: null };
+  const continuationLatencies: number[] = [];
+  let continuationJevTokens = 0;
   const shadowTasks = new Map<string, string>();
   const shadowByModel: Record<string, number> = {};
   let shadowDecisions = 0;
   for (const event of events) {
+    if ("kind" in event && event.kind === "continuation-shadow") {
+      continuationJevTokens += event.jevInputTokens ?? 0;
+      if (typeof event.latencyMs === "number") continuationLatencies.push(event.latencyMs);
+      if (event.reason === "jev-unavailable") continuation.errors += 1;
+      else if (event.recommendedTier === undefined) continuation.skipped[event.reason] = (continuation.skipped[event.reason] ?? 0) + 1;
+      else {
+        continuation.evaluated += 1;
+        if (event.direction === "upgrade") continuation.upgrades += 1;
+        else if (event.direction === "downgrade") continuation.downgrades += 1;
+        else continuation.unchanged += 1;
+        if (event.shadowModel) continuation.byModel[event.shadowModel] = (continuation.byModel[event.shadowModel] ?? 0) + 1;
+      }
+      continue;
+    }
     if ("kind" in event || typeof event.shadowModel !== "string") continue;
     shadowDecisions += 1;
     shadowByModel[event.shadowModel] = (shadowByModel[event.shadowModel] ?? 0) + 1;
@@ -94,7 +123,9 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
     responses: number; input: number; cached: number; output: number };
   const tasks = new Map<string, TaskRecord>();
   const requestDurations: number[] = [];
+  continuation.p95LatencyMs = percentile(continuationLatencies, 0.95);
   for (const event of events) {
+    if ("kind" in event && event.kind === "continuation-shadow") continue;
     const task = event.taskId ? (tasks.get(event.taskId) ?? (() => {
       const created: TaskRecord = { decisionRequests: new Set<string>(), responseRequests: [], responses: 0, input: 0, cached: 0, output: 0 };
       tasks.set(event.taskId!, created);
@@ -159,10 +190,11 @@ export function summarizeMetrics(text: string, usdPerMillionInputTokens = 0.042,
     total: decisions, byClient, byResult, byEffort, recommendations,
     averageJevLatencyMs: latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : null,
     p95JevLatencyMs: latencies.length ? latencies[Math.ceil(latencies.length * 0.95) - 1] ?? null : null,
-    jevInputTokens,
-    estimatedJevUsd: jevInputTokens * usdPerMillionInputTokens / 1_000_000,
+    jevInputTokens: jevInputTokens + continuationJevTokens,
+    estimatedJevUsd: (jevInputTokens + continuationJevTokens) * usdPerMillionInputTokens / 1_000_000,
     jevAttempts, jevErrors, jevErrorRate, warnings,
     ...(prices ? { agentCost: agentCost(prices, usages) } : {}),
+    continuationShadow: continuation,
     shadow: { decisions: shadowDecisions, byModel: shadowByModel, tasks: shadowTasks.size, responses: shadowResponses,
       appliedUsd: shadowResponses ? appliedUsd : null, shadowUsd: shadowResponses ? shadowUsd : null },
     observedResponses, differentModelIds, observedInputTokens, cachedInputTokens, observedOutputTokens,
