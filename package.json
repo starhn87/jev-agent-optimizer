@@ -1,24 +1,33 @@
 {
-  "name": "jev-agent-optimizer",
-  "version": "0.2.0",
+  "name": "jev-decision-kit",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "bin": {
     "jao": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build --workspace @starhn87/jev-decisions && tsc -p tsconfig.json",
     "setup": "npm run build && node dist/cli.js install",
     "doctor": "npm run build && node dist/cli.js doctor",
     "disable": "npm run build && node dist/cli.js uninstall",
-    "check": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/*.test.js claude-mod/tests/*.test.js"
+    "check": "npm run build --workspace @starhn87/jev-decisions && tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs packages/eval/*.test.mjs dist/*.test.js claude-mod/tests/*.test.js",
+    "pack:decisions": "npm run build --workspace @starhn87/jev-decisions && npm pack --workspace @starhn87/jev-decisions --pack-destination artifacts",
+    "test:compat": "node --test tests/compat/worker.test.mjs && npx --yes deno@2.9.5 test tests/compat/deno.test.ts"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@typesafe-ai/sdk": "0.6.0",
+    "esbuild": "0.28.2",
+    "miniflare": "5.20260925.0-alpha",
     "typescript": "^5.9.0"
-  }
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
 }

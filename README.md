@@ -1,66 +1,35 @@
-# Jev Agent Optimizer
+# Jev Decision Kit
 
-Codex와 Claude Code에서 모델·effort를 자동 선택하고, 검색·기억 후보 선별을 돕습니다.
-명령 이름은 `jao`입니다. 기존 설치는 `npm run setup`으로 플러그인 ID, `JAO_*` 환경변수, 설치 기록 경로를 갱신합니다.
+작은 의미 판단을 검증 가능한 결과로 반환하고 평가하는 공통 도구입니다.
 
-## 설치
+- `packages/decisions`: 공식 TypeSafe SDK 기반 Web API-only ESM. Workers, Deno, Node에서 실행합니다.
+- `packages/eval`: Node 평가 실행, 실패·보류를 포함한 JSONL 집계. 판단 기준은 소비자가 제공합니다.
+- `apps/agent-optimizer`: 기존 Codex/Claude 모델·effort 라우팅, 검색·기억 실험과 로컬 도구.
 
-필요 항목: macOS, Node.js 22 이상, Codex 또는 Claude Code, TypeSafe API 키.
+## 개발
 
-```bash
-git clone https://github.com/starhn87/jev-agent-optimizer.git
-cd jev-agent-optimizer
+```sh
 npm ci
-cp -n .env.example .env
-open -e .env
+npm run check
+npm test
+npm run test:compat
+npm run pack:decisions
 ```
 
-`.env`에 `TYPESAFE_API_KEY`를 입력하고 저장한 다음:
+core는 질문 ID·선택지·확률·점수 기대값을 검증하고 timeout/취소/HTTP 오류를 구분합니다. key, 고정 모델, 질문·정책 버전과 실제 동작은 소비자가 소유합니다. 재시도는 0회이며 원문 자동 기록은 없습니다. 한국어 의미 품질은 각 업무의 별도 평가셋으로 검증해야 합니다.
 
-```bash
-npm run setup
-npm run doctor
+## 소비자 연결
+
+아직 npm에 게시하지 않았습니다. `artifacts/starhn87-jev-decisions-0.1.0.tgz`를 pack한 뒤 다음 명령으로 각 저장소 내부에 같은 ESM 산출물과 선언 파일·라이선스·provenance를 복사합니다.
+
+```sh
+node scripts/vendor-decisions.mjs /absolute/consumer/vendor/jev-decisions
 ```
 
-CLI 명령을 직접 쓰려면 `npm link` 후 `jao doctor`를 실행하세요.
+Node/Workers는 `file:vendor/jev-decisions` 의존성을 사용하고 Deno는 vendored ESM을 직접 import합니다. sibling 저장소, 사용자 홈 경로, git branch 또는 registry의 움직이는 latest 버전에 의존하지 않습니다. 소비자의 provenance는 파일별 SHA-256과 소스 commit을 보존합니다. 배포 패키지의 이름·버전은 공개 npm 게시와 분리되어 있습니다.
 
-사용량 요약:
+sw-blog와 motomap 채팅은 off/shadow/enforce, 심사와 moto-kr 감사는 shadow만 지원합니다. enforce에는 평가 후 정한 업무별 threshold 설정이 필요합니다. 기본 연결은 기존 동작을 보존하는 shadow입니다. 누락된 key와 관측 실패는 기존 기능을 실패시키지 않습니다.
 
-```bash
-npm run build
-node dist/cli.js report .local/codex-persistent.jsonl
-node dist/cli.js compare fixtures/comparison-example.json
-```
+## 기존 에이전트 도구
 
-Codex 앱을 재시작하고 새 작업에서 `Jev Auto`를 선택하세요. Claude Code는 새 세션을 시작하세요.
-Codex는 응답 시작에 선택 모델·요청 effort를 표시합니다. Claude Code는 턴이 끝나면 답변 아래 알림 줄에 `Jev Auto · 모델 · effort`를 표시하고(터미널에서는 프롬프트 하단 모드 라벨에도), 대화 기록에는 남기지 않습니다. 실제 모델이 다를 때는 `≠ 실제 모델`을 덧붙입니다.
-설치 시 검색·기억 스킬도 연결됩니다. 후보가 5개를 넘고 에이전트가 스킬을 호출하면 Jev의 구조화된 응답으로 후보를 선별하고 `.local/search.jsonl` 또는 `.local/memory.jsonl`에 건수·시간 등을 기록합니다. 매 대화마다 자동 실행되거나 내장 검색·기억 도구를 가로채지는 않습니다.
-
-한 앱만 설정하려면 다음을 사용하세요:
-
-```bash
-npm run setup -- codex
-npm run setup -- claude
-```
-
-## 업데이트 및 제거
-
-```bash
-git pull --ff-only
-npm ci
-npm run setup
-```
-
-```bash
-npm run disable
-npm run disable -- codex
-npm run disable -- claude
-```
-
-## 더 알아보기
-
-[설치 및 문제 해결](docs/installation.md) · [라우팅 규칙](docs/routing-policy.md) · [측정과 비교](docs/measurement.md) · [로컬 원문 수집](docs/local-capture.md) · [키 보관](docs/local-secrets.md) · [검증 기록](docs/validation-plan.md)
-
-검색 결과 선별 실험: [명령어](docs/search-gate.md)
-
-기억 후보 선별 실험: [명령어](docs/memory-filter.md)
+[사용법](apps/agent-optimizer/README.md). `npm run setup`, `npm run doctor`, `jao`, 루트 `dist/cli.js`, `claude-mod` 경로는 유지합니다. CLI의 Node/macOS 동작은 공통 라이브러리 import에 포함되지 않습니다. Claude sandbox hook은 host API 전용 adapter를 유지하고 기존 정책 동기화 테스트로 검증합니다.

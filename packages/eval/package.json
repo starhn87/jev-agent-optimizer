@@ -1,0 +1,8 @@
+{
+  "name": "@starhn87/jev-eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./index.mjs",
+  "bin": { "jev-eval": "./cli.mjs" }
+}

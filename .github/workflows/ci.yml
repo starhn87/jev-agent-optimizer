@@ -23,3 +23,19 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+
+  runtime-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.5
+      - run: npm ci
+      - run: npm run build
+      - run: node --test tests/compat/worker.test.mjs
+      - run: deno test tests/compat/deno.test.ts

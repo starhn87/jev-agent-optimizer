@@ -1,3 +1,4 @@
+import { createDecisionClient } from "@starhn87/jev-decisions";
 import type { RouteChoice, RouteQuery, Tier } from "./types.js";
 import { MAX_CLASSIFIER_PROMPT_CHARS } from "./policy.js";
 import type { ExchangeSink } from "./capture.js";
@@ -29,8 +30,6 @@ export const EFFORT_CRITERIA = [
 
 export const CONTINUATION_NOTE = " The user turn continues earlier work: judge the work that remains, using previous_request (what was asked) and previous_reply_end (where the last answer stopped).";
 
-const TIERS: ReadonlySet<string> = new Set(["fast", "balanced", "strong"]);
-
 // The exact request production sends; export-training reuses it so a fine-tune learns these questions.
 export function routingRequest(query: RouteQuery, model = "jev-latest") {
   return {
@@ -44,14 +43,14 @@ export function routingRequest(query: RouteQuery, model = "jev-latest") {
     },
     questions: {
       tier: {
-        type: "choice",
+        type: "choice" as const,
         instructions: `Choose the least expensive model tier that can reliably complete this user turn. Assess the current requested work. Conversation length and the previous model are not evidence of task difficulty. Use strong only when the current task clearly requires it. If context is insufficient to judge, choose balanced.${query.previousRequest || query.previousReply ? CONTINUATION_NOTE : ""}`,
         criteria: TIER_CRITERIA,
       },
       effort: {
-        type: "score",
+        type: "score" as const,
         instructions: "How much reasoning does this user turn require? Judge the work independently of the model tier.",
-        criteria: EFFORT_CRITERIA,
+        criteria: EFFORT_CRITERIA as [string, string, ...string[]],
       },
     },
   };
@@ -60,43 +59,16 @@ export function routingRequest(query: RouteQuery, model = "jev-latest") {
 export async function askJev(query: RouteQuery, options: JevOptions = {}): Promise<RouteChoice> {
   const apiKey = options.apiKey ?? process.env.TYPESAFE_API_KEY ?? process.env.JEV_API_KEY;
   if (!apiKey) throw new Error("jev-key-missing");
-
   const request = routingRequest(query, options.model);
-
-  const response = await (options.fetchImpl ?? fetch)(options.endpoint ?? "https://api.typesafe.ai/v1/systemone", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(request),
-    signal: AbortSignal.timeout(options.timeoutMs ?? 1200),
-  });
-  if (!response.ok) throw new Error(`jev-http-${response.status}`);
-
-  const result: unknown = await response.json();
-  if (!result || typeof result !== "object") throw new Error("jev-response-invalid");
-  const record = result as Record<string, unknown>;
-  try { options.onExchange?.(request, record); } catch { /* Capture never fails a route. */ }
-  const answers = record.answers as Record<string, unknown> | undefined;
-  const answer = answers?.tier as Record<string, unknown> | undefined;
-  if (answer?.type !== "choice" || typeof answer.choice !== "string" || !TIERS.has(answer.choice)) {
-    throw new Error("jev-choice-invalid");
-  }
-  if (typeof answer.confidence !== "number" || answer.confidence < 0 || answer.confidence > 1) {
-    throw new Error("jev-confidence-invalid");
-  }
-  const effort = answers?.effort as Record<string, unknown> | undefined;
-  const effortScore = effort?.type === "score" && typeof effort.score === "number" &&
-    Number.isFinite(effort.score) && effort.score >= 0 && effort.score <= 4 ? effort.score : undefined;
-  const effortConfidence = typeof effort?.confidence === "number" && Number.isFinite(effort.confidence) &&
-    effort.confidence >= 0 && effort.confidence <= 1 ? effort.confidence : undefined;
-  const usage = record.usage as Record<string, unknown> | undefined;
-  const inputTokens = typeof usage?.input_tokens === "number" ? usage.input_tokens : undefined;
-  return {
-    tier: answer.choice as Tier, confidence: answer.confidence, inputTokens,
-    ...(effortScore === undefined ? {} : { effortScore }),
-    ...(effortConfidence === undefined ? {} : { effortConfidence }),
-    ...(typeof record.model === "string" ? { jevModel: record.model } : {}),
-  };
+  const result = await createDecisionClient({ apiKey, model: request.model,
+    baseURL: options.endpoint?.replace(/\/v1\/systemone\/?$/, ""), fetch: options.fetchImpl,
+  }).decide({ definitionId: "agent-model-effort", definitionVersion: "1", state: request.state, questions: request.questions },
+    { timeoutMs: options.timeoutMs ?? 1200 });
+  if (!result.ok) throw new Error(result.error.kind === "invalid_response" ? "jev-choice-invalid" : `jev-${result.error.kind}`);
+  const { tier, effort } = result.answers;
+  try { options.onExchange?.(request, { model: result.meta.model, answers: result.answers,
+    usage: { input_tokens: result.meta.inputTokens, output_tokens: result.meta.outputTokens } }); } catch { /* Capture never fails a route. */ }
+  return { tier: tier.choice as Tier, confidence: tier.confidence,
+    inputTokens: result.meta.inputTokens ?? undefined, effortScore: effort.score, effortConfidence: effort.confidence,
+    ...(result.meta.model ? { jevModel: result.meta.model } : {}) };
 }

@@ -8,10 +8,10 @@ test("Jev request uses the documented choice schema and bounds prompt size", asy
   let requestBody: Record<string, unknown> | undefined;
   const fetchImpl: typeof fetch = async (_url, init) => {
     requestBody = JSON.parse(String(init?.body));
-    assert.equal((init?.headers as Record<string, string>).authorization, "Bearer test-only-key");
+    assert.equal(new Headers(init?.headers).get("authorization"), "Bearer test-only-key");
     return Response.json({ model: "jev-1.13.0", answers: {
-      tier: { type: "choice", choice: "strong", confidence: 0.93 },
-      effort: { type: "score", score: 2.6, confidence: 0.88 },
+      tier: { type: "choice", choice: "strong", confidence: 0.93, probabilities: { fast: .02, balanced: .05, strong: .93 } },
+      effort: { type: "score", score: 2.6, confidence: 0.88, probabilities: { 0: 0, 1: 0, 2: .4, 3: .6, 4: 0 } },
     }, usage: { input_tokens: 123 } });
   };
   const choice = await askJev({ ...query, prompt: "x".repeat(5000) }, { apiKey: "test-only-key", fetchImpl });
@@ -27,13 +27,12 @@ test("Jev request uses the documented choice schema and bounds prompt size", asy
   assert.equal((questions.effort?.criteria as string[]).length, 5);
 });
 
-test("invalid effort answer does not discard a valid model decision", async () => {
+test("invalid effort answer defers the complete decision", async () => {
   const fetchImpl: typeof fetch = async () => Response.json({ answers: {
-    tier: { type: "choice", choice: "fast", confidence: 0.98 },
+    tier: { type: "choice", choice: "fast", confidence: 0.98, probabilities: { fast: .98, balanced: .01, strong: .01 } },
     effort: { type: "score", score: 99 },
   } });
-  assert.deepEqual(await askJev(query, { apiKey: "test-only-key", fetchImpl }),
-    { tier: "fast", confidence: 0.98, inputTokens: undefined });
+  await assert.rejects(askJev(query, { apiKey: "test-only-key", fetchImpl }), /jev-choice-invalid/);
 });
 
 test("invalid or missing choice fails closed", async () => {

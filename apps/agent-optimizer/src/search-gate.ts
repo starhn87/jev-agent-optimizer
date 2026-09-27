@@ -1,3 +1,4 @@
+import { createDecisionClient, type Entry, type Questions } from "@starhn87/jev-decisions";
 import type { JevOptions } from "./jev.js";
 import { looksLikeInjection, looksSensitive } from "./content-screen.js";
 
@@ -50,17 +51,17 @@ export function parseSearchInput(value: unknown): SearchInput {
 export async function askSearchJev(state: Record<string, unknown>, questions: Record<string, unknown>, options: JevOptions = {}): Promise<JevReply> {
   const apiKey = options.apiKey ?? process.env.TYPESAFE_API_KEY ?? process.env.JEV_API_KEY;
   if (!apiKey) throw new Error("jev-key-missing");
-  const response = await (options.fetchImpl ?? fetch)(options.endpoint ?? "https://api.typesafe.ai/v1/systemone", {
-    method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: options.model ?? "jev-latest", state, questions }), signal: AbortSignal.timeout(options.timeoutMs ?? 2000),
-  });
-  if (!response.ok) throw new Error("jev-unavailable");
-  const reply: unknown = await response.json();
-  if (!record(reply) || !record(reply.answers)) throw new Error("jev-invalid");
-  try {
-    options.onExchange?.({ model: options.model ?? "jev-latest", state, questions: questions as Record<string, Record<string, unknown>> }, reply);
-  } catch { /* Capture never fails a gate. */ }
-  return reply as JevReply;
+  const request = { model: options.model ?? "jev-latest", state, questions };
+  const result = await createDecisionClient({ apiKey, model: request.model,
+    baseURL: options.endpoint?.replace(/\/v1\/systemone\/?$/, ""), fetch: options.fetchImpl,
+  }).decide({ definitionId: "agent-search-memory", definitionVersion: "1", state: state as Entry, questions: questions as Questions },
+    { timeoutMs: options.timeoutMs ?? 2000 });
+  if (!result.ok) throw new Error(result.error.kind === "invalid_response" ? "jev-invalid" : "jev-unavailable");
+  const reply = { model: result.meta.model, answers: result.answers,
+    usage: { input_tokens: result.meta.inputTokens, output_tokens: result.meta.outputTokens } };
+  try { options.onExchange?.({ ...request, questions: questions as Record<string, Record<string, unknown>> }, reply); }
+  catch { /* Capture never fails a gate. */ }
+  return reply;
 }
 
 function usage(reply: JevReply): number {

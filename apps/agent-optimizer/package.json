@@ -1,0 +1,10 @@
+{
+  "name": "jev-agent-optimizer",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Codex and Claude consumer of Jev Decision Kit",
+  "dependencies": {
+    "@starhn87/jev-decisions": "0.1.0"
+  }
+}
