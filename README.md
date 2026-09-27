@@ -57,9 +57,27 @@ npm run doctor
 npm run cli -- --help
 ```
 
-## 에이전트에서 판단 CLI 사용하기
+## 다른 저장소에 연결하기
 
-Codex·Claude Code에서 판단 CLI를 호출하는 스킬을 설치할 수 있습니다.
+애플리케이션이 실행 중 Jev 판단을 사용하려면 **판단 라이브러리**를 그 프로젝트의 서버 코드에 연결합니다. Jev Decision Kit를 위의 순서로 준비한 뒤, 두 저장소가 같은 상위 폴더에 있다면 사용하는 프로젝트에서 실행하세요.
+
+```sh
+npm install ../jev-decision-kit/packages/decisions
+```
+
+서버에서 `createDecisionClient`를 가져와 프로젝트의 API 키·질문·선택지를 전달합니다. 결과의 `ok`를 확인하고 실패·판단보류 시의 동작을 정합니다. 로컬 경로 연결은 개발용이며, 배포 시에는 버전이 고정된 패키지를 프로젝트에 포함해야 합니다. [서버 연결 예제와 배포 방법](docs/integration.md).
+
+앱을 수정하기 전에 다른 저장소의 폴더에서 CLI로 질문을 시험할 수도 있습니다.
+
+```sh
+node ../jev-decision-kit/packages/cli/dist/cli.mjs decide --text "계정 설정을 변경하고 싶어요" --question "계정 지원 문의인가요?" --choices "예,아니오,판단보류" --json
+```
+
+이 명령은 그 문장에 대한 판단 한 번을 실행합니다. 실제 앱의 요청 처리에 연결하려면 위의 서버 연동을 사용하세요. 관측 결과 집계는 [평가 라이브러리](packages/eval/README.md)에서 제공합니다.
+
+## 에이전트에게 판단 실험 맡기기
+
+스킬은 Codex·Claude Code에게 로컬 CLI 호출 방법, 응답 확인 방법, 평가할 때의 주의점을 알려주는 안내입니다. 다음 명령은 준비한 Jev Decision Kit 폴더에서 실행합니다.
 
 ```sh
 npm run cli -- agent install codex
@@ -67,7 +85,17 @@ npm run cli -- agent install claude
 npm run cli -- agent doctor
 ```
 
-두 앱의 스킬을 함께 설치하려면 `npm run cli -- agent install`을 실행합니다. 설치된 스킬은 이 저장소의 CLI 위치를 기록하므로 다른 프로젝트에서도 호출할 수 있습니다. 새 세션에서 `jev-decision-kit` 스킬로 필요한 질문을 실행합니다. [설치 범위와 제거](docs/installation.md).
+두 앱의 스킬을 함께 설치하려면 `npm run cli -- agent install`을 실행합니다. 설치한 뒤 새 에이전트 세션에서 작업할 프로젝트를 열고 다음처럼 지시하세요.
+
+> jev-decision-kit 스킬을 사용해서 이 프로젝트의 샘플 문의 3개를 계정 지원·기타·판단보류로 분류해줘. 입력, 질문, 결과, 처리 시간을 표로 정리해줘.
+
+> jev-decision-kit 스킬로 기존 질문을 실행하고, 정답이 있는 사례와 비교해서 오답·실패·판단보류를 정리해줘.
+
+에이전트는 설치된 스킬에 기록된 로컬 CLI 경로로 질문을 실행하고 검증된 응답을 읽습니다. 스킬을 이름으로 지정하면 해당 작업에 사용하라는 의도를 분명히 전달할 수 있습니다.
+
+기대 효과는 호출 코드를 매번 작성하지 않고 같은 질문·선택지로 샘플을 시험하며, 결과와 실패·판단보류를 함께 확인하는 것입니다. 실제 판단에는 API 호출 시간과 사용 비용이 들며, 비용 절감과 판단 정확도는 사용하는 업무의 사례로 평가해야 합니다.
+
+스킬 설치만으로 앱에 판단 기능이 연결되거나 운영 데이터가 수집되지는 않습니다. 매 메시지를 자동 처리하거나 에이전트의 모델 설정을 바꾸는 기능도 없습니다. [스킬 사용 순서·적용 범위·제거](docs/installation.md).
 
 ## 업데이트와 제거
 
@@ -82,16 +110,6 @@ npm run build
 스킬도 갱신하려면 `npm run cli -- agent install`을 다시 실행하세요. 저장소를 이동했을 때도 스킬을 갱신하면 새 경로를 기록합니다.
 
 사용을 끝내려면 `npm run cli -- agent uninstall`로 설치한 스킬을 해제한 뒤 clone한 폴더를 제거하면 됩니다. 저장한 키 파일은 보존합니다.
-
-## 애플리케이션 코드에서 사용하기
-
-터미널 명령 대신 서버 코드에서 직접 호출하려면 [판단 라이브러리](packages/decisions/README.md)를, 관측 데이터 평가와 보고 기능은 [평가 라이브러리](packages/eval/README.md)를 사용하세요. 질문, 적용 기준, 저장할 데이터는 각 프로젝트에서 정의합니다. 라이브러리 설치만으로 데스크톱 앱 설정을 바꾸지는 않습니다.
-
-## Deno와 ESM은 무엇인가요?
-
-- **Node.js**는 JavaScript를 실행하는 프로그램입니다. 위 CLI를 실행할 때 사용합니다.
-- **Deno**도 JavaScript·TypeScript를 실행하는 프로그램입니다. 일부 서버는 Node.js 대신 Deno를 사용하므로, 판단 라이브러리가 그 환경에서도 동작하는지 검사합니다. CLI 사용자는 Deno를 설치할 필요가 없습니다. [Deno 공식 설명](https://docs.deno.com/runtime/).
-- **ESM**은 코드 파일을 나누고 필요한 기능을 `import`로 가져오는 JavaScript 표준 방식입니다. 우리 라이브러리가 다른 서버 코드에 붙을 때 사용하는 형식이며, 별도 프로그램이나 설치 단계가 아닙니다. [JavaScript 모듈 설명](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules).
 
 ## 개발자용 저장소 구성
 
