@@ -1,12 +1,12 @@
 {
   "name": "jev-decision-kit",
-  "description": "Model and effort routing plus search and memory selection for Claude Code with TypeSafe Jev.",
+  "description": "Run and evaluate Jev decision questions with the Jev Decision Kit CLI.",
   "owner": { "name": "Jev Decision Kit contributors" },
   "plugins": [
     {
       "name": "jev-decision-kit",
-      "source": "./claude-mod",
-      "description": "Choose Claude Code's model and effort per turn, and provide search and memory selection skills."
+      "source": "./",
+      "description": "Use the CLI to execute project-owned decision questions and evaluate observations."
     }
   ]
 }

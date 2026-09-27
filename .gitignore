@@ -8,4 +8,4 @@ dist/
 .local/
 .claude/types/
 
-packages/cli/claude-mod/
+packages/cli/skills/

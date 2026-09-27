@@ -5,7 +5,7 @@ import { summarize } from '../../eval/index.mjs';
 import { configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
 
-const help = `Jev Decision Kit — 설정, 판단 실행, 평가, 에이전트 연결\n
+const help = `Jev Decision Kit — 설정, 판단 실행, 평가\n
   jev-decision-kit init                    API 키 설정 (화면에 표시하지 않음)
   jev-decision-kit demo                    준비된 Jev 판단 예제 실행
   jev-decision-kit demo --offline          키 없이 모의 예제 실행
@@ -14,7 +14,7 @@ const help = `Jev Decision Kit — 설정, 판단 실행, 평가, 에이전트 �
   jev-decision-kit eval FILE.jsonl          관측 결과 집계
   jev-decision-kit eval --demo              준비된 평가 예제 실행
   jev-decision-kit doctor                  API 키 설정 상태 확인
-  jev-decision-kit agent install [codex|claude|both]
+  jev-decision-kit agent install [codex|claude|both]  판단 CLI 호출 스킬 설치
   jev-decision-kit agent doctor
   jev-decision-kit agent uninstall [codex|claude|both]
 `;
@@ -64,7 +64,7 @@ async function main() {
   if (command === 'doctor') {
     if (args.length) throw new Error('사용법: jev-decision-kit doctor');
     const { apiKey, model } = configuration();
-    console.log(`API 키: ${apiKey ? '설정됨 (값은 표시하지 않음)' : '설정 필요 — jev-decision-kit init'}\n모델: ${model}\n설정 위치: ${keyFile()}`);
+    console.log(`API 키: ${apiKey ? '설정됨 (값은 표시하지 않음)' : '설정 필요 — jev-decision-kit init'}\nJev 모델: ${model}\n설정 위치: ${keyFile()}`);
     return;
   }
   if (command === 'demo') return decide(request(), options(args, ['--offline', '--json', '--model', '--timeout-ms', '--base-url']));

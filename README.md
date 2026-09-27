@@ -1,6 +1,6 @@
 # Jev Decision Kit
 
-Jev를 프로젝트와 에이전트 도구에 연결하는 실행 도구입니다. API 키 설정, 판단 실행, 결과 평가, Codex·Claude 연결을 하나의 `jev-decision-kit` 명령으로 처리합니다. 애플리케이션 코드에 붙일 수 있는 판단·평가 라이브러리도 함께 제공합니다.
+프로젝트의 Jev 판단을 실행하고 검증·평가하는 공통 라이브러리와 CLI입니다. API 키 설정, 질문 실행, 검증된 응답 확인, 관측 결과 집계를 `jev-decision-kit` 명령으로 처리합니다. 서버 코드에 직접 붙이거나 에이전트에서 같은 CLI를 호출할 수 있습니다.
 
 ## 바로 실행하기
 
@@ -38,9 +38,9 @@ jev-decision-kit doctor
 jev-decision-kit --help
 ```
 
-## Codex·Claude 연결하기
+## 에이전트에서 판단 CLI 사용하기
 
-키 설정 후 사용할 앱을 지정하세요. 연결할 앱이 설치되어 있어야 하며 Codex의 백그라운드 자동 연결은 macOS를 지원합니다.
+Codex·Claude Code에서 판단 CLI를 호출하는 스킬을 설치할 수 있습니다.
 
 ```sh
 jev-decision-kit agent install codex
@@ -48,20 +48,18 @@ jev-decision-kit agent install claude
 jev-decision-kit agent doctor
 ```
 
-두 앱을 함께 연결하려면 `jev-decision-kit agent install`을 실행합니다. Codex 앱은 재시작 후 새 작업에서 `Jev Auto`를 선택하고, Claude Code는 새 세션에서 `/jev-decision-kit-route`로 확인합니다. 연결을 해제하려면 `jev-decision-kit agent uninstall`을 사용하세요.
-
-이 연결은 모델·추론 수준 선택과 검색·기억 후보 선별을 제공합니다. [에이전트 도구의 동작과 상세 설정](apps/agent-tools/README.md).
+두 앱의 스킬을 함께 설치하려면 `jev-decision-kit agent install`을 실행합니다. 새 세션에서 `jev-decision-kit` 스킬로 필요한 질문을 실행합니다. 설치 명령은 스킬 파일과 연결만 관리합니다. [설치 범위와 제거](docs/installation.md).
 
 ## 업데이트와 제거
 
-업데이트는 처음의 `npm install -g` 명령을 다시 실행하면 됩니다. 키와 에이전트 실행 파일은 사용자 폴더에 있어 CLI 패키지를 갱신해도 유지됩니다.
+업데이트는 처음의 `npm install -g` 명령을 다시 실행하면 됩니다. 키는 사용자 폴더에 저장됩니다. 스킬도 갱신하려면 `jev-decision-kit agent install`을 다시 실행하세요.
 
 ```sh
 jev-decision-kit agent uninstall
 npm uninstall -g @starhn87/jev-decision-kit
 ```
 
-첫 명령은 에이전트 연결을, 둘째 명령은 CLI를 제거합니다. 저장한 키 파일은 보존합니다.
+첫 명령은 설치한 판단 스킬을, 둘째 명령은 CLI를 제거합니다. 저장한 키 파일은 보존합니다.
 
 ## 애플리케이션 코드에서 사용하기
 
@@ -78,7 +76,7 @@ npm uninstall -g @starhn87/jev-decision-kit
 - `packages/cli`: 설치·실행 명령과 준비된 예제.
 - `packages/decisions`: 질문 실행과 응답 검증을 제공하는 라이브러리.
 - `packages/eval`: 관측 결과 평가와 보고 라이브러리.
-- `apps/agent-tools`: Codex·Claude 연결과 모델·검색·기억 선택 기능.
+- `skills/jev-decision-kit`: 에이전트에서 판단 CLI를 호출하는 안내.
 
 저장소 개발 시에는 루트에서 다음을 실행합니다.
 

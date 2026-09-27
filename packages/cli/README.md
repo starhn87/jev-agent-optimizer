@@ -1,6 +1,6 @@
 # Jev Decision Kit CLI
 
-Configure an API key, run Jev decisions, evaluate observations and connect Codex or Claude from one command. Node.js 22+ and npm are required.
+Configure an API key, run validated Jev decisions and evaluate observations from one command. Node.js 22+ and npm are required.
 
 ```sh
 npm install -g https://github.com/starhn87/jev-decision-kit/releases/latest/download/jev-decision-kit.tgz
@@ -27,7 +27,7 @@ jev-decision-kit agent doctor
 jev-decision-kit agent uninstall
 ```
 
-Agent integration requires the selected app; Codex background installation supports macOS. Agent runtime files are stored under the user directory, so replacing the CLI package does not remove them. Only explicit agent commands change desktop settings.
+The optional agent commands install or remove a skill that calls this decision CLI. They manage only skill files and links; app settings, model selection and background services are outside this installer. Re-run `agent install` after a CLI update to refresh the skill.
 
 For automation, pass an API key in `TYPESAFE_API_KEY`, or supply it to `init --stdin`. Do not put the key in a command argument. `JEV_KIT_MODEL` overrides the default `jev-1.13.0`.
 

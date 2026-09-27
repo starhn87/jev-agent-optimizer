@@ -1,4 +1,0 @@
-{
-  "description": "Classify a user turn with Jev and select the model for its main-loop requests",
-  "modules": ["./register.js"]
-}

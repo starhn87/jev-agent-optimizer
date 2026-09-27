@@ -1,13 +1,31 @@
 {
   "name": "@starhn87/jev-decision-kit",
-  "version": "0.1.0",
-  "description": "Set up, run and evaluate Jev decisions and connect agent tools from one CLI",
+  "version": "0.2.0",
+  "description": "Configure, run and evaluate Jev decisions with optional CLI skills for coding agents",
   "type": "module",
   "license": "MIT",
-  "bin": { "jev-decision-kit": "dist/cli.mjs" },
-  "files": ["dist", "claude-mod", "README.md", "LICENSE", "THIRD_PARTY_LICENSES"],
-  "engines": { "node": ">=22" },
-  "repository": { "type": "git", "url": "git+https://github.com/starhn87/jev-decision-kit.git", "directory": "packages/cli" },
-  "publishConfig": { "access": "public" },
-  "scripts": { "prepack": "npm run build --prefix ../.." }
+  "bin": {
+    "jev-decision-kit": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_LICENSES"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/starhn87/jev-decision-kit.git",
+    "directory": "packages/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "npm run build --prefix ../.."
+  }
 }
