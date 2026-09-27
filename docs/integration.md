@@ -27,7 +27,7 @@ npm run connect -- ../my-app
 - `vendor/jev-utils/`: 두 패키지 파일과 소유 파일의 해시를 기록한 `connection.json`을 보관합니다.
 - `.agents/skills/jev-utils/SKILL.md`·`.claude/skills/jev-utils/SKILL.md`: 두 에이전트의 프로젝트 스킬을 생성합니다.
 
-프로젝트 스킬은 이 저장소의 `skills/jev-utils/SKILL.md`를 두 위치에 복사한 Markdown 안내문입니다. Codex·Claude Code에 프로젝트의 `npm run jev` 명령, 샘플 질문 실행, 기존 관측 파일 집계와 결과 확인 방법을 알려줍니다. TypeSafe 공식 `typesafe-ai` 스킬은 이 명령으로 설치하지 않습니다. [스킬 내용·사용 예](../README.md#프로젝트-스킬에는-무엇이-들어가나요), [공식 스킬 별도 설치](../README.md#에이전트에서-공식-typesafe-스킬-사용하기).
+프로젝트 스킬은 Codex·Claude Code에 Jev Utils 사용법을 알려주는 설명서입니다. 이 저장소의 `skills/jev-utils/SKILL.md`를 두 위치에 복사하며, 설명서에는 프로젝트의 `npm run jev` 명령, 샘플 질문 실행, 기존 관측 파일 집계와 결과 확인 방법이 들어 있습니다. TypeSafe 공식 `typesafe-ai` 스킬은 이 명령으로 설치하지 않습니다. [스킬 내용·사용 예](../README.md#프로젝트-스킬에는-무엇이-들어가나요), [공식 스킬 별도 설치](../README.md#에이전트에서-공식-typesafe-스킬-사용하기).
 
 `@starhn87/jev-eval` 라이브러리도 설치 대상에 포함되지 않습니다. CLI의 `eval`로 파일을 집계할 수 있으며, 앱 코드에서 평가·주간 보고 함수를 import하려면 [평가 패키지를 별도로 설치](../packages/eval/README.md)합니다.
 

@@ -64,7 +64,9 @@ pnpm·yarn·Deno는 해당 실행 환경에 맞게 수동 설치합니다. [설�
 
 ### 프로젝트 스킬에는 무엇이 들어가나요?
 
-프로젝트 스킬은 **Codex·Claude Code가 이 프로젝트에서 CLI를 사용하는 방법을 읽는 Markdown 안내문**입니다. `connect`는 이 저장소의 [`jev-utils` 스킬](skills/jev-utils/SKILL.md)을 두 위치에 같은 내용으로 복사합니다.
+프로젝트 스킬은 **Codex·Claude Code에 Jev Utils의 사용법을 알려주는 설명서**입니다. “Jev로 이 샘플을 시험해줘” 같은 작업을 할 때 어떤 명령을 실행하고 결과를 어떻게 확인할지 알려줍니다. 이 설명서를 작업하는 저장소 안에 보관하므로 프로젝트 스킬이라고 부릅니다.
+
+`connect`는 이 저장소의 [`jev-utils` 설명서](skills/jev-utils/SKILL.md)를 두 위치에 같은 내용으로 복사합니다.
 
 | 생성 파일 | 읽는 에이전트 |
 | --- | --- |
