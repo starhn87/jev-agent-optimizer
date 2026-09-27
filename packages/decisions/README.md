@@ -1,9 +1,75 @@
 # Jev Decisions
 
-Web API-only ESM package for Workers, Deno and Node. The official TypeSafe SDK 0.6.0 is bundled; this package has no external runtime imports. Consumers supply secrets, a pinned model and their own question definitions.
+Validated Jev decisions for Workers, Deno and Node. The official TypeSafe SDK 0.6.0 is bundled; there are no external runtime imports or installation hooks. The package imports no Node modules and reads no environment variables.
 
-`createDecisionClient({ apiKey, model, baseURL?, fetch? }).decide({ definitionId, definitionVersion, state, questions }, { signal?, timeoutMs? })` returns validated answers or a classified error. Default deadline is 1200ms, retries are disabled. Definition metadata stays local. No request bodies, secrets, storage or domain actions are logged or executed.
+```sh
+npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/starhn87-jev-decisions-0.1.0.tgz
+```
 
-Choice/Score probabilities must match the question's keys. Rounded probability sums and score expectations are checked with per-entry rounding tolerance. Low certainty is a valid answer, not a transport error. Missing usage remains null.
+This installs the packaged GitHub release through npm. npm registry publication is pending. Node examples require Node 22+; the same ESM also works in Workers and Deno.
 
-Each application owns thresholds, abstention, actions and background lifetime. An aborted user request must not start fallback work. These protocol guarantees do not establish semantic accuracy; calibrate each Korean task before enforcement.
+## Node / TypeScript
+
+Save as `decision.mjs` (or use this in your TypeScript project):
+
+```js
+import { createDecisionClient } from '@starhn87/jev-decisions';
+
+const client = createDecisionClient({ apiKey: process.env.TYPESAFE_API_KEY ?? '', model: 'jev-1.13.0' });
+const result = await client.decide({
+  definitionId: 'support-scope', definitionVersion: '1',
+  state: { message: 'Can I change my account settings?' },
+  questions: { scope: { type: 'choice', criteria: {
+    relevant: 'The request concerns account support',
+    unrelated: 'The request is unrelated to account support',
+    uncertain: 'There is not enough context to decide',
+  } } },
+}, { timeoutMs: 1200 });
+
+if (result.ok) {
+  // Inferred as "relevant" | "unrelated" | "uncertain".
+  console.log(result.answers.scope.choice, result.answers.scope.probabilities);
+} else console.log(result.error.kind);
+```
+
+Put `TYPESAFE_API_KEY=your_key` in a Git-ignored `.env`, then run:
+
+```sh
+node --env-file=.env decision.mjs
+```
+
+## Cloudflare Workers
+
+```ts
+import { createDecisionClient } from '@starhn87/jev-decisions';
+
+export default {
+  async fetch(request: Request, env: { TYPESAFE_API_KEY: string }) {
+    const result = await createDecisionClient({ apiKey: env.TYPESAFE_API_KEY, model: 'jev-1.13.0' })
+      .decide({ definitionId: 'relevance', definitionVersion: '1', state: await request.text(),
+        questions: { relevant: { type: 'noul', instructions: 'Is this request relevant to account support?' } } },
+        { signal: request.signal, timeoutMs: 1200 });
+    return Response.json(result);
+  },
+};
+```
+
+Set `TYPESAFE_API_KEY` as a server secret. Keep it out of frontend bundles.
+
+## Deno
+
+```ts
+import { createDecisionClient } from 'https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.0/index.js';
+
+const client = createDecisionClient({ apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', model: 'jev-1.13.0' });
+```
+
+The release includes the bundled ESM and its TypeScript declaration alongside it. Save your caller as `decision.ts` and run it with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
+
+## Contract
+
+`createDecisionClient({ apiKey, model, baseURL?, fetch? }).decide({ definitionId, definitionVersion, state, questions }, { signal?, timeoutMs? })` returns validated answers or a classified error. Default total deadline is 1200ms; retries are disabled. Definition metadata stays local and is not added to the provider wire contract.
+
+Choice labels and Choice/Score probability keys must match their question. Rounded probability sums and score expectations are checked with per-entry rounding tolerance. Low certainty is a valid answer. Missing token usage remains `null`. Errors distinguish `invalid_request`, `missing_key`, `timeout`, `aborted`, `network`, `http` and `invalid_response`.
+
+Each caller owns thresholds, abstention, actions, observation storage and background lifetime. An aborted user request must not start fallback work. Protocol guarantees do not establish semantic accuracy; calibrate your task before enforcement. Source and release instructions: [Jev Decision Kit](https://github.com/starhn87/jev-decision-kit).

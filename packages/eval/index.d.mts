@@ -1,0 +1,5 @@
+export type ObservationMeta = { durationMs?: number | null; inputTokens?: number | null; outputTokens?: number | null };
+export type Observation = { caseId: string; groupId: string; status: 'applied' | 'deferred' | 'failed'; correct: boolean | null; error?: string | null; meta?: ObservationMeta | null };
+export type Summary = { total: number; applied: number; deferred: number; failed: number; correct: number; unlabeled: number; allCorrectGroups: number; groups: number; p50Ms: number | null; p95Ms: number | null; inputTokens: { knownTotal: number; unknownRows: number }; outputTokens: { knownTotal: number; unknownRows: number } };
+export function summarize(rows: readonly Observation[]): Summary;
+export function evaluateCases<T extends { caseId: string; groupId: string }, R extends { ok: boolean; error?: { kind: string }; meta?: ObservationMeta }>(cases: readonly T[], options: { run: (item: T) => Promise<R>; judge: (result: R, item: T) => { status: Observation['status']; correct: boolean | null }; concurrency?: number }): Promise<{ rows: Observation[]; summary: Summary }>;

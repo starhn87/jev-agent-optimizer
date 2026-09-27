@@ -7,7 +7,13 @@ import { pathToFileURL } from 'node:url';
 
 const staging = mkdtempSync(join(tmpdir(), 'jev-compat-'));
 try {
-  execFileSync('tar', ['-xzf', 'artifacts/starhn87-jev-decisions-0.1.0.tgz', '-C', staging]);
+  let archive = process.argv[2];
+  if (!archive) {
+    execFileSync('npm', ['run', 'build', '--workspace', '@starhn87/jev-decisions'], { stdio: 'inherit' });
+    const [packed] = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--workspace', '@starhn87/jev-decisions', '--json', '--pack-destination', staging], { encoding: 'utf8' }));
+    archive = join(staging, packed.filename);
+  }
+  execFileSync('tar', ['-xzf', archive, '-C', staging]);
   const module = pathToFileURL(join(staging, 'package/dist/index.js')).href;
   execFileSync(process.execPath, ['--test', 'tests/compat/worker.test.mjs'], {
     stdio: 'inherit', env: { ...process.env, JEV_COMPAT_MODULE: module },

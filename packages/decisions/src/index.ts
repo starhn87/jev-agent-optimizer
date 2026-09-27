@@ -24,7 +24,7 @@ export function createDecisionClient(config: {
         meta: { ...meta, durationMs: performance.now() - start },
       });
       if (options.signal?.aborted) return fail("aborted");
-      if (!config.apiKey.trim()) return fail("missing_key");
+      if (typeof config.apiKey !== "string" || !config.apiKey.trim()) return fail("missing_key");
       const timeout = options.timeoutMs ?? 1200;
       if (!request.definitionId || !request.definitionVersion || !config.model || !Number.isFinite(timeout) || timeout <= 0 || !validQuestions(request.questions)) return fail("invalid_request");
       const wire = { model: config.model, state: request.state, questions: request.questions };

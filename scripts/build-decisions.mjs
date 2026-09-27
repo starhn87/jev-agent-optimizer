@@ -10,6 +10,13 @@ for (const file of readdirSync(new URL('dist/', pkg)).filter(file => file.endsWi
   const path = new URL(`dist/${file}`, pkg);
   writeFileSync(path, readFileSync(path, 'utf8').replace(/(\.\/[^"']+)\.js(["'])/g, '$1.d.ts$2'));
 }
+// 단일 ESM의 선언도 합쳐 TypeScript와 Deno에서 값 export의 .d.ts 재수출을 피한다.
+const indexPath = new URL('dist/index.d.ts', pkg);
+const index = readFileSync(indexPath, 'utf8').split('\n').filter(line =>
+  !line.startsWith('import type ') && !line.startsWith('export type * ') && !line.startsWith('export { validateAnswers }')).join('\n');
+const validator = readFileSync(new URL('dist/validation.d.ts', pkg), 'utf8').match(/^export declare function validateAnswers[^\n]+/m)?.[0];
+if (!validator) throw new Error('Missing validation declaration');
+writeFileSync(indexPath, readFileSync(new URL('dist/types.d.ts', pkg), 'utf8') + '\n' + index + '\n' + validator + '\n');
 await build({ entryPoints: [new URL('src/index.ts', pkg).pathname], outfile: new URL('dist/index.js', pkg).pathname,
   bundle: true, format: 'esm', platform: 'neutral', target: 'es2022',
   banner: { js: '// @ts-self-types="./index.d.ts"' }, legalComments: 'eof',
