@@ -1,6 +1,6 @@
 # Jev Decision Kit
 
-공식 TypeSafe SDK 위에서 **응답 검증·실패 결과·관측 메타데이터의 형식을 여러 프로젝트가 공유**하도록 만든 작은 라이브러리와 시험용 CLI입니다. 모델의 판단은 Jev가 수행하고, 이 패키지는 받은 응답을 검사하고 같은 형식으로 반환합니다.
+공식 TypeSafe SDK와 함께 쓰는 **응답 검증·관측 결과·평가 유틸리티**와 시험용 CLI입니다. 앱은 공식 SDK로 Jev를 호출하고, 필요한 공통 유틸리티를 선택해 사용합니다. 별도의 판단 클라이언트나 질문 문법을 제공하지 않습니다.
 
 Jev를 호출하는 것만 필요하다면 [공식 SDK](https://github.com/typesafe-ai/typesafe-sdk-js)로 충분합니다. 이 패키지는 여러 앱에서 같은 응답 검사와 실패·평가 형식을 유지하려는 경우에 사용합니다. 정확도 향상이나 비용 절감은 아직 입증하지 않았습니다. [공식 SDK·Kev와의 비교와 유지할 이유](docs/purpose.md).
 
@@ -73,12 +73,12 @@ npm run connect -- ../my-app
 
 | 변경 위치 | 실제 작업 |
 | --- | --- |
-| `package.json` | 판단 라이브러리를 운영 의존성, CLI를 개발 의존성으로 추가하고 `jev` npm 명령 생성 |
+| `package.json` | 공식 SDK와 검증·관측 유틸리티를 운영 의존성, CLI를 개발 의존성으로 추가하고 `jev` npm 명령 생성 |
 | `package-lock.json`·`node_modules/` | `npm install`로 의존성 설치 및 lockfile 갱신. install/postinstall 스크립트는 실행하지 않음 |
 | `vendor/jev-decision-kit/` | 버전이 고정된 두 패키지 파일과 업데이트 확인용 `connection.json` 보관 |
 | `.agents/skills/jev-decision-kit/`·`.claude/skills/jev-decision-kit/` | Codex·Claude Code의 프로젝트 스킬 생성 |
 
-**앱 적용을 위해 남는 일:** 서버 API 키 설정, 업무에 맞는 질문·실패 처리 기준 정의, 기존 요청 처리에서 라이브러리 호출, 관측 결과 저장입니다. Shadow 모드, 주간 이슈·PR, 배포도 이 명령이 구성하지 않습니다. CLI의 키 설정과 서버의 키 설정은 별개입니다.
+**앱 적용을 위해 남는 일:** 서버 API 키 설정, 업무에 맞는 질문·실패 처리 기준 정의, 기존 요청 처리에서 공식 SDK 호출과 응답 검증, 관측 결과 저장입니다. Shadow 모드, 주간 이슈·PR, 배포도 이 명령이 구성하지 않습니다. CLI의 키 설정과 서버의 키 설정은 별개입니다.
 
 지원 대상은 npm을 사용하는 독립 프로젝트 또는 워크스페이스 루트입니다. pnpm·yarn·bun 프로젝트와 기존의 다른 Jev 설치 방식은 자동으로 이전하지 않습니다. Edge 함수처럼 앱 루트와 별도의 의존성을 쓰는 코드에도 자동으로 연결되지 않습니다. [서버 적용·수동 설치·업데이트](docs/integration.md).
 
@@ -94,7 +94,7 @@ API 키를 아직 설정하지 않았다면 `npm run jev -- init`으로 입력�
 
 `package.json`·`package-lock.json`·`vendor/jev-decision-kit/`·생성한 두 스킬 폴더를 함께 커밋하면, 다른 개발 환경과 CI에서도 `npm ci`로 같은 패키지를 설치합니다. 원본 clone은 필요하지 않습니다. 기존 `jev` 명령·같은 패키지 의존성·스킬과 충돌하거나 관리 파일을 직접 수정했다면 덮어쓰지 않고 중단합니다.
 
-서버 적용은 기존 요청 처리에서 `createDecisionClient`를 호출하도록 구현합니다. 설치 후 에이전트에게 “서버의 문의 분류에 이 라이브러리를 연결해줘”라고 요청하면 이 별도 구현 작업을 맡길 수 있습니다.
+서버 적용은 기존 요청 처리에서 공식 `TypeSafeClient.systemOne()`을 호출하고 `validateAnswers` 또는 `toObservation`을 사용하는 방식으로 구현합니다. 설치 후 에이전트에게 “서버의 문의 분류에 이 라이브러리를 연결해줘”라고 요청하면 이 별도 구현 작업을 맡길 수 있습니다.
 
 ## 에이전트에게 판단 실험 맡기기
 
@@ -137,7 +137,7 @@ npm run build
 ## 개발자용 저장소 구성
 
 - `packages/cli`: 설치·실행 명령과 준비된 예제.
-- `packages/decisions`: 질문 실행과 응답 검증을 제공하는 라이브러리.
+- `packages/decisions`: 공식 SDK 응답 검증과 관측 결과 변환 유틸리티.
 - `packages/eval`: 관측 결과 평가와 보고 라이브러리.
 - `skills/jev-decision-kit`: 에이전트에서 판단 CLI를 호출하는 안내.
 

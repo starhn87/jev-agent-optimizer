@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
-import { createDecisionClient } from '../../decisions/dist/index.js';
+import { TypeSafeClient, TypeSafeError } from '@typesafe-ai/sdk';
+import { toObservation } from '../../decisions/dist/index.js';
 import { summarize } from '../../eval/index.mjs';
 import { cliCommand, configuration, initialize, keyFile } from './config.mjs';
 import { agent } from './agent.mjs';
@@ -40,7 +41,7 @@ function request(text = '계정 설정을 변경하고 싶어요', question = '�
 }
 async function decide(input, flags, demo = false) {
   const config = configuration();
-  if (flags['--model']) config.model = flags['--model'];
+  config.model = flags['--model'] ?? input.model ?? config.model;
   if (flags['--base-url']) config.baseURL = flags['--base-url'];
   if (flags['--offline']) {
     config.apiKey = 'offline-example';
@@ -54,7 +55,20 @@ async function decide(input, flags, demo = false) {
     console.log(`입력 문장: ${input.state.message}\n질문: ${input.questions.decision.instructions}\n선택지: ${Object.keys(input.questions.decision.criteria).join(' / ')}\n`);
   }
   const timeoutMs = flags['--timeout-ms'] ? Number(flags['--timeout-ms']) : 1200;
-  const result = await createDecisionClient(config).decide(input, { timeoutMs });
+  const start = performance.now();
+  let outcome;
+  try {
+    const wire = { state: input.state, questions: input.questions, model: config.model };
+    if (new TextEncoder().encode(JSON.stringify(wire)).byteLength > 256_000) throw new TypeSafeError('CLI request exceeds 256 KB');
+    const client = new TypeSafeClient({ apiKey: config.apiKey, defaultModel: config.model,
+      baseURL: config.baseURL, fetch: config.fetch, retry: { maxRetries: 0 }, logLevel: 'off' });
+    outcome = await client.systemOne(wire, { timeout: timeoutMs }).withResponse();
+  } catch (error) { outcome = { error }; }
+  const result = toObservation(input.questions, outcome, {
+    definitionId: input.definitionId ?? 'cli-run', definitionVersion: input.definitionVersion ?? '1',
+    requestedModel: config.model, durationMs: performance.now() - start,
+  });
+  result.meta.durationMs = performance.now() - start;
   if (flags['--json']) console.log(JSON.stringify(result, null, 2));
   else if (result.ok) {
     if (demo) {
@@ -90,7 +104,7 @@ async function main() {
     if (!args[0] || args[0].startsWith('--')) throw new Error(`사용법: ${cliCommand('run FILE.json')}`);
     let input;
     try { input = JSON.parse(readFileSync(args[0], 'utf8')); } catch { throw new Error('질문 JSON 파일을 읽을 수 없습니다.'); }
-    if (!input || typeof input !== 'object' || !input.definitionId || !input.definitionVersion || !input.questions || !Object.hasOwn(input, 'state')) throw new Error('질문 정의에 definitionId, definitionVersion, state, questions가 필요합니다.');
+    if (!input || typeof input !== 'object' || !input.questions || !Object.hasOwn(input, 'state')) throw new Error('공식 SDK 요청 형식의 state, questions가 필요합니다.');
     return decide(input, options(args.slice(1), ['--json', '--model', '--timeout-ms', '--base-url']));
   }
   if (command === 'eval') {

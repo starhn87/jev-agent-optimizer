@@ -51,6 +51,7 @@ test('packaged CLI runs init, examples, decisions and evaluation independently',
     let body = ''; req.on('data', part => { body += part; });
     req.on('end', () => {
       const payload = JSON.parse(body);
+      assert.deepEqual(Object.keys(payload).sort(), ['model', 'questions', 'state']);
       const demo = payload.state.message === '계정 설정을 변경하고 싶어요';
       assert.equal(req.headers.authorization, 'Bearer synthetic-key');
       if (!demo) assert.equal(payload.state.message, 'hello');
@@ -72,6 +73,10 @@ test('packaged CLI runs init, examples, decisions and evaluation independently',
     });
     const output = await run(['decide', '--text', 'hello', '--question', 'Is this relevant?', '--choices', 'yes,no', '--json', '--base-url', baseURL]);
     assert.equal(JSON.parse(output).answers.decision.choice, 'yes');
+    h.put('sdk-request.json', JSON.stringify({ model: 'jev-1.13.0', state: { message: 'hello' },
+      questions: { decision: { type: 'choice', instructions: 'Relevant?', criteria: { yes: null, no: null } } } }));
+    const native = JSON.parse(await run(['run', join(h.home, 'sdk-request.json'), '--json', '--base-url', baseURL]));
+    assert.equal(native.answers.decision.choice, 'yes'); assert.equal(native.meta.definitionId, 'cli-run');
     const demo = await run(['demo', '--base-url', baseURL]);
     assert.match(demo, /Jev 판단 예제 — 실제 API 호출/); assert.match(demo, /계정 지원 문의에 해당합니다\./);
     assert.match(demo, /처리 시간: \d+ms \(API 요청부터 응답 검증 완료까지\)/);

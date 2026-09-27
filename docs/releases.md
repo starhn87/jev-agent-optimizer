@@ -8,6 +8,8 @@
 4. 새 clone에서 README의 명령을 그대로 실행해 초기 설정·판단 예제·JSON 출력·스킬 설치를 확인한다. `npm run connect -- <테스트 프로젝트>`로 연결한 뒤, manifest·lockfile·vendor·프로젝트 스킬만 새 폴더로 복사해 `npm ci`와 `npm run jev -- demo --offline`이 동작하는지도 확인한다. 키 없는 검증에는 모의 예제를 사용한다.
 5. 검증한 커밋에 릴리스 태그를 만들고 패키지 파일을 GitHub 릴리스에 올린다. CLI 파일은 `jev-decision-kit.tgz`라는 asset 이름으로 보관하고 해당 CLI 릴리스를 latest로 지정한다.
 
-라이브러리 `@starhn87/jev-decisions`·`@starhn87/jev-eval`은 버전으로 고정한 릴리스 파일로 설치한다. 패키지 파일 목록으로 `.env`, 설치 상태, 로컬 기록, 테스트를 제외한다. 라이브러리 설치 시 데스크톱 설정을 변경하는 install/postinstall hook은 없다.
+라이브러리 `@starhn87/jev-decisions`·`@starhn87/jev-eval`은 버전으로 고정한 릴리스 파일로 설치한다. 패키지 파일 목록으로 `.env`, 설치 상태, 로컬 기록, 테스트를 제외한다. 유틸리티 설치 시 데스크톱 설정을 변경하는 install/postinstall hook은 없다.
 
 에이전트 스킬은 clone에서 `npm run cli -- agent install`로 연결한다. 설치한 스킬은 이 로컬 CLI의 절대 경로를 기록한다. 저장소를 이동하거나 업데이트한 뒤에는 스킬을 갱신한다.
+
+응답 유틸리티 0.2부터 공식 SDK는 peer dependency이다. 유틸리티와 공식 SDK를 독립 앱에 함께 설치해 리터럴 타입·실제 SDK 오류 분류·Workers·Deno 동작을 검증한다. SDK를 유틸리티 번들에 다시 포함하지 않는다.

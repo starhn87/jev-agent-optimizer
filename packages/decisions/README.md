@@ -1,74 +1,65 @@
-# Jev Decisions
+# Jev response utilities
 
-Validated Jev decisions for Workers, Deno and Node. The official TypeSafe SDK 0.6.0 is bundled; there are no external runtime imports or installation hooks. The package imports no Node modules and reads no environment variables.
+Use the official `@typesafe-ai/sdk` for requests, question builders, types, cancellation and retry settings. This package adds two synchronous response utilities. It does not make requests, read API keys, select models or save observations. SDK 0.6.0 is a peer dependency, not a bundled SDK copy.
 
-```sh
-npm install https://github.com/starhn87/jev-decision-kit/releases/download/packages-v0.1.2/starhn87-jev-decisions-0.1.2.tgz
-```
+## Install in an existing project
 
-This installs the packaged GitHub release through npm. npm registry publication is pending. Node examples require Node 22+; the same ESM also works in Workers and Deno.
+From a Jev Decision Kit clone, `npm run connect -- ../my-app` installs the official SDK, these utilities, a local CLI and project skills. See [exact installation scope](https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md).
 
-## Node / TypeScript
+For library-only installation, copy `artifacts/starhn87-jev-decisions-0.2.0.tgz` from the clone to your project's vendor folder, then install that local package and `@typesafe-ai/sdk@0.6.0` using your package manager. Commit the vendor file, manifest and lockfile. npm registry publication is pending.
 
-This section is for embedding the library in application code. For a terminal quick start, use the [CLI](https://github.com/starhn87/jev-decision-kit#readme).
+## Validate an official SDK response
 
-Use this inside your existing JavaScript or TypeScript server code:
-
-```js
-import { createDecisionClient } from '@starhn87/jev-decisions';
-
-const client = createDecisionClient({ apiKey: process.env.TYPESAFE_API_KEY ?? '', model: 'jev-1.13.0' });
-const result = await client.decide({
-  definitionId: 'support-scope', definitionVersion: '1',
-  state: { message: 'Can I change my account settings?' },
-  questions: { scope: { type: 'choice', criteria: {
-    relevant: 'The request concerns account support',
-    unrelated: 'The request is unrelated to account support',
-    uncertain: 'There is not enough context to decide',
-  } } },
-}, { timeoutMs: 1200 });
-
-if (result.ok) {
-  // Inferred as "relevant" | "unrelated" | "uncertain".
-  console.log(result.answers.scope.choice, result.answers.scope.probabilities);
-} else console.log(result.error.kind);
-```
-
-Pass the server-side API key from your application configuration.
-
-## Cloudflare Workers
+Inside your existing TypeScript server code:
 
 ```ts
-import { createDecisionClient } from '@starhn87/jev-decisions';
+import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
+import { validateAnswers } from '@starhn87/jev-decisions';
 
-export default {
-  async fetch(request: Request, env: { TYPESAFE_API_KEY: string }) {
-    const result = await createDecisionClient({ apiKey: env.TYPESAFE_API_KEY, model: 'jev-1.13.0' })
-      .decide({ definitionId: 'relevance', definitionVersion: '1', state: await request.text(),
-        questions: { relevant: { type: 'noul', instructions: 'Is this request relevant to account support?' } } },
-        { signal: request.signal, timeoutMs: 1200 });
-    return Response.json(result);
-  },
+const client = new TypeSafeClient({ apiKey, retry: { maxRetries: 0 } });
+const questions = {
+  kind: choice('What is this inquiry about?', {
+    account: 'Account settings or login',
+    other: 'Other inquiries',
+  }),
 };
+const response = await client.systemOne({ state: { message }, questions }, {
+  timeout: 1200,
+  signal,
+});
+const answers = validateAnswers(questions, response.answers);
+if (answers) console.log(answers.kind.choice); // "account" | "other"
 ```
 
-Set `TYPESAFE_API_KEY` as a server secret. Keep it out of frontend bundles.
+`validateAnswers(questions, value)` returns the official SDK answer type or `null`. It checks question IDs, answer kinds, allowed labels, probability keys/ranges/sums, the selected maximum, and Score values/legends. Probability rounding is tolerated. It preserves the SDK's supported single-option Choice question. Format validation does not establish task accuracy.
 
-## Deno
+## Convert a result for observations
+
+When an app needs a shared record format, pass the result of `.withResponse()` or a caught SDK error to `toObservation`:
 
 ```ts
-// @deno-types="./node_modules/@starhn87/jev-decisions/dist/index.d.ts"
-import { createDecisionClient } from './node_modules/@starhn87/jev-decisions/dist/index.js';
+import { toObservation } from '@starhn87/jev-decisions';
 
-const client = createDecisionClient({ apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', model: 'jev-1.13.0' });
+const started = performance.now();
+let outcome;
+try {
+  outcome = await client.systemOne({ state: { message }, questions }, {
+    timeout: 1200, signal,
+  }).withResponse();
+} catch (error) {
+  outcome = { error };
+}
+const observation = toObservation(questions, outcome, {
+  definitionId: 'inquiry-kind', definitionVersion: '1',
+  requestedModel: client.defaultModel,
+  durationMs: performance.now() - started,
+});
 ```
 
-Run the npm install command above in the same project first. Deno imports the installed ESM and its adjacent TypeScript declaration from the local filesystem; it does not resolve an unpublished npm registry package. Run your application with `deno run --env-file=.env --allow-env=TYPESAFE_API_KEY --allow-net decision.ts`. Grant only the environment/network permissions needed by your caller and commit its lockfile. This package does not manage permissions.
+This validates the answers and returns `ok`, answers or a classified error, and allowlisted metadata. Definition ID/version, actual/requested model, request ID, duration and available token usage use a common format. Missing or invalid usage is `null`, not zero. Exception messages and request content are not copied. SDK errors are classified as `invalid_request`, `timeout`, `aborted`, `network` or `http`; invalid answers are `invalid_response`; other exceptions are `unknown`.
 
-## Contract
+Each app chooses its questions, request limits, timeout/retry settings, thresholds, fallback behavior, storage and background lifetime. No public client wrapper, policy engine or automatic Shadow instrumentation is included.
 
-`createDecisionClient({ apiKey, model, baseURL?, fetch? }).decide({ definitionId, definitionVersion, state, questions }, { signal?, timeoutMs? })` returns validated answers or a classified error. Default total deadline is 1200ms; retries are disabled. Definition metadata stays local and is not added to the provider wire contract.
+## Workers and Deno
 
-Choice labels and Choice/Score probability keys must match their question. Rounded probability sums and score expectations are checked with per-entry rounding tolerance. Low certainty is a valid answer. Missing token usage remains `null`. Errors distinguish `invalid_request`, `missing_key`, `timeout`, `aborted`, `network`, `http` and `invalid_response`.
-
-Each caller owns thresholds, abstention, actions, observation storage and background lifetime. An aborted user request must not start fallback work. Protocol guarantees do not establish semantic accuracy; calibrate your task before enforcement. Source and release instructions: [Jev Decision Kit](https://github.com/starhn87/jev-decision-kit).
+Workers use the same imports through the application's bundler. Deno/Supabase can map `@typesafe-ai/sdk` to `npm:@typesafe-ai/sdk@0.6.0` in their Deno configuration and import the vendored utility's `dist/index.js`. Its adjacent `index.d.ts` uses the official SDK types. Keep the SDK version and lockfile in the app's execution environment. [Runtime verification and release procedure](https://github.com/starhn87/jev-decision-kit/blob/main/docs/releases.md).

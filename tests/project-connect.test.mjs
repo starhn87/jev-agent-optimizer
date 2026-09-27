@@ -51,6 +51,7 @@ test('one command connects portable library, local CLI and project skills with n
   let result = h.connect(); assert.equal(result.status, 0, result.stderr);
   const manifest = JSON.parse(h.get('package.json'));
   assert.equal(manifest.scripts.jev, 'jev-decision-kit');
+  assert.equal(manifest.dependencies['@typesafe-ai/sdk'], '0.6.0');
   assert.equal(manifest.scripts.keep, h.manifest.scripts.keep); assert.deepEqual(manifest.custom, h.manifest.custom);
   assert.match(manifest.dependencies['@starhn87/jev-decisions'], /^file:vendor\/jev-decision-kit\//);
   assert.match(manifest.devDependencies['@starhn87/jev-decision-kit'], /^file:vendor\/jev-decision-kit\//);
@@ -73,14 +74,18 @@ test('one command connects portable library, local CLI and project skills with n
   const initialized = execFileSync('npm', ['run', '--silent', 'jev', '--', 'init', '--stdin'], { cwd: fresh, env: h.env, input: 'test-only-key\n', encoding: 'utf8' });
   assert.match(initialized, /npm run jev -- demo/);
   const decision = execFileSync(process.execPath, ['--input-type=module', '-e', `
-    import { createDecisionClient } from '@starhn87/jev-decisions';
-    const client = createDecisionClient({ apiKey: 'test-only', model: 'jev-1.13.0', fetch: async () => new Response(JSON.stringify({ model: 'jev-1.13.0', answers: { kind: { type: 'choice', choice: 'yes', confidence: 0.9, probabilities: { yes: 0.9, no: 0.1 } } } }), { headers: { 'content-type': 'application/json' } }) });
-    console.log(JSON.stringify(await client.decide({ definitionId: 'test', definitionVersion: '1', state: { message: 'sample' }, questions: { kind: { type: 'choice', instructions: 'Relevant?', criteria: { yes: 'relevant', no: 'irrelevant' } } } })));
+    import { TypeSafeClient } from '@typesafe-ai/sdk';
+    import { toObservation } from '@starhn87/jev-decisions';
+    const client = new TypeSafeClient({ apiKey: 'test-only', defaultModel: 'jev-1.13.0', logLevel: 'off', fetch: async () => new Response(JSON.stringify({ model: 'jev-1.13.0', answers: { kind: { type: 'choice', choice: 'yes', confidence: 0.9, probabilities: { yes: 0.9, no: 0.1 } } } }), { headers: { 'content-type': 'application/json' } }) });
+    const questions = { kind: { type: 'choice', instructions: 'Relevant?', criteria: { yes: 'relevant', no: 'irrelevant' } } };
+    const response = await client.systemOne({ state: { message: 'sample' }, questions }).withResponse();
+    console.log(JSON.stringify(toObservation(questions, response, { definitionId: 'test', definitionVersion: '1', requestedModel: client.defaultModel, durationMs: 1 })));
   `], { cwd: fresh, env: h.env, encoding: 'utf8' });
   assert.equal(JSON.parse(decision).answers.kind.choice, 'yes');
   rmSync(join(fresh, 'node_modules'), { recursive: true });
   execFileSync('npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: fresh, env: h.env, stdio: 'pipe' });
   assert.ok(existsSync(join(fresh, 'node_modules/@starhn87/jev-decisions/dist/index.js')));
+  assert.ok(existsSync(join(fresh, 'node_modules/@typesafe-ai/sdk/dist/index.mjs')));
   assert.equal(existsSync(join(fresh, 'node_modules/@starhn87/jev-decision-kit')), false);
 });
 
@@ -88,6 +93,7 @@ test('foreign commands, skills, managers and edited connection files are preserv
   const scenarios = [
     { extra: { scripts: { jev: 'user-tool' } }, expected: /기존 jev/ },
     { extra: { dependencies: { '@starhn87/jev-decisions': '0.1.0' } }, expected: /기존 .*의존성/ },
+    { extra: { dependencies: { '@typesafe-ai/sdk': '0.5.0' } }, expected: /기존 SDK/ },
     { extra: { packageManager: 'pnpm@10.0.0' }, expected: /npm\/package-lock/ },
     { extra: {}, file: '.claude/skills/jev-decision-kit/SKILL.md', expected: /기존 스킬/ },
   ];

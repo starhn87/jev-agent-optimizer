@@ -20,7 +20,7 @@ clone한 Jev Decision Kit 폴더에서:
 npm run connect -- ../my-app
 ```
 
-판단 라이브러리·프로젝트 CLI와 함께 `.agents/skills/jev-decision-kit/SKILL.md`와 `.claude/skills/jev-decision-kit/SKILL.md`를 생성합니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
+공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 `.agents/skills/jev-decision-kit/SKILL.md`와 `.claude/skills/jev-decision-kit/SKILL.md`를 생성합니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
 
 프로젝트 스킬과 개인 스킬을 중복 설치할 필요는 없습니다. 여러 저장소에서 공통으로 사용할 개인 스킬이 필요할 때만 아래의 `agent install` 방식을 선택하세요.
 

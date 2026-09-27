@@ -1,6 +1,6 @@
 # 다른 프로젝트에 설치하고 서버에 적용하기
 
-설치와 서버 적용은 별도 작업입니다. `connect`는 판단 라이브러리·CLI·스킬을 설치합니다. 서버에서 Jev 판단을 사용하려면 기존 요청 처리에 라이브러리 호출을 구현해야 합니다. 에이전트 스킬은 CLI 호출과 평가 작업의 안내입니다.
+설치와 서버 적용은 별도 작업입니다. `connect`는 공식 SDK·응답 유틸리티·CLI·스킬을 설치합니다. 서버에서 Jev 판단을 사용하려면 기존 요청 처리에 공식 SDK 호출과 필요한 응답 검증을 구현해야 합니다. 에이전트 스킬은 CLI 호출과 평가 작업의 안내입니다.
 
 ## `connect`가 하는 설치 작업
 
@@ -22,7 +22,7 @@ npm run connect -- ../my-app
 
 명령이 저장소에 준비된 패키지로 설치를 처리합니다. Jev Decision Kit 폴더에서 `npm ci`나 빌드를 먼저 할 필요가 없습니다. 대상 폴더의 변경 내역은 다음과 같습니다.
 
-- `package.json`: `@starhn87/jev-decisions` 운영 의존성, `@starhn87/jev-decision-kit` 개발 의존성, `jev` npm 명령을 추가합니다.
+- `package.json`: `@typesafe-ai/sdk@0.6.0`과 `@starhn87/jev-decisions` 운영 의존성, `@starhn87/jev-decision-kit` 개발 의존성, `jev` npm 명령을 추가합니다.
 - `package-lock.json`·`node_modules/`: `npm install`로 의존성을 설치하고 lockfile을 갱신합니다. 프로젝트의 install/postinstall 스크립트는 실행하지 않습니다.
 - `vendor/jev-decision-kit/`: 두 패키지 파일과 소유 파일의 해시를 기록한 `connection.json`을 보관합니다.
 - `.agents/skills/jev-decision-kit/SKILL.md`·`.claude/skills/jev-decision-kit/SKILL.md`: 두 에이전트의 프로젝트 스킬을 생성합니다.
@@ -41,46 +41,42 @@ npm run jev -- decide --text "계정 설정을 변경하고 싶어요" --questio
 
 기존 `jev` 명령·같은 패키지 의존성·스킬에 충돌이 있으면 변경을 시작하지 않습니다. 이전에 이 명령으로 설치한 프로젝트는 같은 명령으로 갱신하며, 직접 수정한 관리 파일은 덮어쓰지 않습니다. npm 설치가 실패하면 관리 파일과 manifest·lockfile을 복원합니다. `node_modules`는 일부 바뀔 수 있으므로 실패 시 기존 프로젝트의 설치 명령으로 복구합니다.
 
-## 서버 코드에 연결하기
+## 서버에서 공식 SDK 사용하기
 
-설치 후 남는 작업은 서버 키 설정, 업무 질문·실패 정책 정의, 실제 호출 위치 구현, 필요 시 관측 저장입니다. 기존 TypeScript 서버 코드에 다음과 같이 사용할 수 있습니다.
+앱은 공식 SDK의 질문 빌더와 `systemOne()`을 사용합니다. 간단한 응답 검사만 필요하다면 SDK 결과에 `validateAnswers(questions, response.answers)`를 적용하면 됩니다. 기존 관측 형식도 공유하려면 다음처럼 사용합니다.
 
 ```ts
-import { createDecisionClient } from '@starhn87/jev-decisions';
+import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
+import { toObservation } from '@starhn87/jev-decisions';
 
-export async function classifyInquiry(message: string, apiKey: string, signal?: AbortSignal) {
-  const result = await createDecisionClient({ apiKey, model: 'jev-1.13.0' }).decide({
-    definitionId: 'inquiry-kind',
-    definitionVersion: '1',
-    state: { message },
-    questions: {
-      kind: {
-        type: 'choice',
-        instructions: '문의가 계정 지원에 관한 것인지 분류하세요.',
-        criteria: {
-          support: '계정 설정이나 로그인 등 계정 지원 문의',
-          other: '계정 지원 외의 문의',
-          uncertain: '분류하기에 정보가 부족한 문의',
-        },
-      },
-    },
-  }, { timeoutMs: 1200, signal });
-
-  if (!result.ok) {
-    if (result.error.kind === 'aborted') return { status: 'cancelled' as const };
-    return { status: 'deferred' as const, reason: result.error.kind };
-  }
-  const { choice, confidence } = result.answers.kind;
-  if (choice === 'uncertain') return { status: 'deferred' as const, reason: 'uncertain' as const };
-  return { status: 'decided' as const, kind: choice, confidence };
+const questions = {
+  kind: choice('계정 지원 문의인가요?', {
+    support: '계정 설정이나 로그인 문의',
+    other: '계정 지원 외 문의',
+    uncertain: '분류할 정보가 부족한 문의',
+  }),
+};
+const client = new TypeSafeClient({
+  apiKey, defaultModel: 'jev-1.13.0', retry: { maxRetries: 0 }, logLevel: 'off',
+});
+const started = performance.now();
+let outcome;
+try {
+  outcome = await client.systemOne({ state: { message }, questions }, {
+    timeout: 1200, signal,
+  }).withResponse();
+} catch (error) {
+  outcome = { error };
 }
+const result = toObservation(questions, outcome, {
+  definitionId: 'inquiry-kind', definitionVersion: '1',
+  requestedModel: client.defaultModel, durationMs: performance.now() - started,
+});
 ```
 
-서버의 기존 요청 처리에서 메시지와 서버 비밀 설정의 API 키를 이 함수에 전달합니다. `decided`이면 제안된 분류를 사용하고, `deferred`이면 기존 처리 유지나 검토 요청 등 프로젝트의 정책을 적용합니다. `cancelled`이면 해당 요청을 중단합니다. 이 상태 이름과 처리 방식은 연결 예제의 정책입니다.
+앱은 `result.ok`를 확인한 뒤 검증된 답변을 사용하고, 불확실성·실패 시 기존 처리 유지나 검토 요청 등 자체 정책을 적용합니다. `aborted`이면 해당 요청의 후속 작업을 중단합니다. 저장할 필요가 있으면 앱의 DB나 로그에 `result`를 전달합니다. 유틸리티가 저장을 수행하지 않습니다.
 
-CLI의 `setup`에 저장한 키는 CLI가 읽습니다. 서버 라이브러리는 사용자 폴더의 키를 자동으로 읽지 않으므로, 각 앱의 서버 환경변수나 비밀 설정에서 `apiKey`를 전달합니다.
-
-질문·선택지·처리 기준은 앱이 정의합니다. 패키지는 응답의 선택지·확률·형식을 검증하고 오류를 구분하지만, 업무상 정답인지는 정답이 있는 사례로 평가합니다. [판단 API와 런타임별 예제](../packages/decisions/README.md).
+시간 제한·재시도·모델·헤더·취소 등 호출 옵션은 공식 SDK에 전달합니다. 입력 크기 제한과 관측의 수명도 앱에서 관리합니다. CLI의 `init`에 저장한 키는 서버에서 자동으로 읽지 않으므로 앱의 서버 비밀 설정에서 SDK에 키를 전달합니다. [유틸리티 API와 런타임별 사용](../packages/decisions/README.md).
 
 ## CI와 배포에 포함하기
 
@@ -90,23 +86,23 @@ CLI의 `setup`에 저장한 키는 CLI가 읽습니다. 서버 라이브러리�
 - `vendor/jev-decision-kit/` 전체
 - `.agents/skills/jev-decision-kit/`와 `.claude/skills/jev-decision-kit/`
 
-외부 clone이나 전역 CLI가 필요하지 않습니다. 운영 환경에서 `npm ci --omit=dev`로 설치하면 판단 라이브러리만 포함합니다. 서버의 API 키는 앱의 비밀 설정으로 별도 전달합니다.
+외부 clone이나 전역 CLI가 필요하지 않습니다. 운영 환경에서 `npm ci --omit=dev`로 설치하면 공식 SDK와 응답 유틸리티를 포함하고 CLI는 제외합니다. 서버의 API 키는 앱의 비밀 설정으로 별도 전달합니다.
 
 업데이트는 Jev Decision Kit clone을 갱신한 다음 `npm run connect -- ../my-app`을 다시 실행하고, 앱의 질문 사례를 평가합니다. 변경된 연결 파일을 커밋해 반영합니다.
 
 ## 설치 명령을 쓰지 않는 경우
 
-다른 패키지 관리자를 사용하거나 라이브러리만 필요하다면 버전이 고정된 [공개 릴리스 파일](../packages/decisions/README.md)을 프로젝트 의존성으로 직접 설치할 수 있습니다. 로컬 패키지 파일을 프로젝트에 보관하려면:
+다른 패키지 관리자를 사용하거나 유틸리티만 필요하다면 clone에 포함된 버전이 고정된 패키지 파일을 프로젝트 의존성으로 직접 설치할 수 있습니다. 로컬 패키지 파일을 프로젝트에 보관하려면:
 
-빌드된 현재 판단 라이브러리 버전 `0.1.2`는 Jev Decision Kit의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
+빌드된 현재 응답 유틸리티 버전 `0.2.0`는 Jev Decision Kit의 `artifacts/`에 포함되어 있습니다. `my-app` 폴더에서:
 
 ```sh
 mkdir -p vendor
-cp ../jev-decision-kit/artifacts/starhn87-jev-decisions-0.1.2.tgz vendor/
-npm install ./vendor/starhn87-jev-decisions-0.1.2.tgz
+cp ../jev-decision-kit/artifacts/starhn87-jev-decisions-0.2.0.tgz vendor/
+npm install @typesafe-ai/sdk@0.6.0 ./vendor/starhn87-jev-decisions-0.2.0.tgz
 ```
 
-이 파일은 빌드된 판단 코드·타입·라이선스를 담은 npm 패키지입니다. 사용하는 패키지 관리자로 설치하고, 파일과 manifest·lockfile을 함께 커밋합니다. 이 수동 방식은 CLI나 프로젝트 스킬을 생성하지 않습니다.
+이 파일은 빌드된 검증·관측 유틸리티·타입·라이선스를 담은 npm 패키지입니다. 사용하는 패키지 관리자로 설치하고, 파일과 manifest·lockfile을 함께 커밋합니다. 이 수동 방식은 CLI나 프로젝트 스킬을 생성하지 않습니다.
 
 ## 다른 저장소에서 CLI로 시험하기
 

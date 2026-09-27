@@ -8,6 +8,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const vendor = 'vendor/jev-decision-kit';
 const skillPaths = ['.agents/skills/jev-decision-kit/SKILL.md', '.claude/skills/jev-decision-kit/SKILL.md'];
 const packages = { dependencies: '@starhn87/jev-decisions', devDependencies: '@starhn87/jev-decision-kit' };
+const sdkName = '@typesafe-ai/sdk';
+const sdkVersion = JSON.parse(readFileSync(join(root, 'packages/decisions/package.json'), 'utf8')).peerDependencies[sdkName];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const present = path => { try { lstatSync(path); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } };
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -15,7 +17,7 @@ const allowedFile = path => skillPaths.includes(path) || /^vendor\/jev-decision-
 
 function connect(args) {
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
-    console.log('사용법: npm run connect -- <npm 프로젝트 폴더>\n\n판단 라이브러리·로컬 CLI·Codex/Claude Code 프로젝트 스킬을 설치합니다.\n변경: package.json·package-lock.json·node_modules·vendor/jev-decision-kit·두 프로젝트 스킬\n지원: 독립 npm 프로젝트 또는 워크스페이스 루트. 다른 설치 방식은 자동 이전하지 않습니다.\n\n앱의 요청 처리는 바뀌지 않습니다. 서버 키·질문·실패 정책·실제 호출은 별도 구현입니다.\nShadow 수집·주간 이슈/PR·배포를 구성하거나 Jev API를 호출하지 않습니다.\n상세 안내: docs/integration.md');
+    console.log('사용법: npm run connect -- <npm 프로젝트 폴더>\n\n공식 SDK·검증 유틸리티·로컬 CLI·Codex/Claude Code 프로젝트 스킬을 설치합니다.\n변경: package.json·package-lock.json·node_modules·vendor/jev-decision-kit·두 프로젝트 스킬\n지원: 독립 npm 프로젝트 또는 워크스페이스 루트. 다른 설치 방식은 자동 이전하지 않습니다.\n\n앱의 요청 처리는 바뀌지 않습니다. 서버 키·질문·실패 정책·실제 호출은 별도 구현입니다.\nShadow 수집·주간 이슈/PR·배포를 구성하거나 Jev API를 호출하지 않습니다.\n상세 안내: docs/integration.md');
     return;
   }
   if (args.length !== 1 || args[0].startsWith('-')) throw new Error('사용법: npm run connect -- <npm 프로젝트 폴더>');
@@ -60,6 +62,10 @@ function connect(args) {
       if (manifest[bucket]?.[name] !== undefined && !(state && bucket === field && manifest[bucket][name] === state.packages[name])) throw new Error(`기존 ${name} 의존성이 있어 변경하지 않았습니다.`);
     }
   }
+  for (const bucket of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+    const existing = manifest[bucket]?.[sdkName];
+    if (existing !== undefined && !(bucket === 'dependencies' && (existing === sdkVersion || existing === state?.packages[sdkName]))) throw new Error(`공식 SDK ${sdkVersion} 운영 의존성이 필요합니다. 기존 SDK 설치는 docs/integration.md의 수동 설치 방법을 사용하세요.`);
+  }
   for (const path of skillPaths) {
     if (present(safe(path)) && !state?.files[path]) throw new Error(`${path}: 기존 스킬이 있어 덮어쓰지 않았습니다.`);
   }
@@ -75,7 +81,7 @@ function connect(args) {
   }
   try {
     const files = {};
-    const specs = {};
+    const specs = { [sdkName]: sdkVersion };
     for (const [field, name] of Object.entries(packages)) {
       const pkg = JSON.parse(readFileSync(join(root, 'packages', field === 'dependencies' ? 'decisions' : 'cli', 'package.json'), 'utf8'));
       const filename = `${pkg.name.replace('@', '').replace('/', '-')}-${pkg.version}.tgz`;
@@ -89,6 +95,7 @@ function connect(args) {
       specs[name] = `file:${path}`;
       manifest[field] = { ...manifest[field], [name]: specs[name] };
     }
+    manifest.dependencies[sdkName] = sdkVersion;
     const skill = readFileSync(join(root, 'skills/jev-decision-kit/SKILL.md'));
     for (const path of skillPaths) files[path] = skill;
     // All conflicts are checked before the first target write.
@@ -100,7 +107,7 @@ function connect(args) {
     const install = spawnSync('npm', ['install', '--global=false', '--package-lock=true', '--include=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: target, stdio: 'inherit' });
     if (install.error || install.status !== 0) throw new Error('npm 설치가 실패했습니다. 연결 파일과 package.json·lockfile을 복원했습니다. node_modules를 복구하려면 기존 프로젝트의 설치 명령을 실행하세요.');
     put(stateFile, JSON.stringify({ version: 1, packages: specs, files: { ...state?.files, ...Object.fromEntries(Object.entries(files).map(([path, bytes]) => [path, hash(bytes)])) } }, null, 2) + '\n');
-    console.log(`\n패키지·개발 도구 설치 완료: ${target}\n변경: package.json·package-lock.json·node_modules·vendor/jev-decision-kit·두 프로젝트 스킬\n\n앱의 실제 요청 처리는 아직 연결되지 않았습니다.\n남은 작업: 서버 API 키 설정, 업무 질문·실패 정책 정의, createDecisionClient 호출 구현, 관측 저장\nShadow 수집·주간 이슈/PR·배포는 별도로 구성합니다. 이 설치는 Jev API를 호출하지 않았습니다.\n\nCLI를 시험하려면 이 프로젝트에서 실행하세요:\n  npm run jev -- demo --offline\n  npm run jev -- init  (CLI API 키가 아직 없을 때; 서버 키 설정과 별개)\n  npm run jev -- decide --text "계정 설정을 변경하고 싶어요" --question "계정 지원 문의인가요?" --choices "예,아니오,판단보류"\n\nCodex·Claude Code 프로젝트 스킬은 새 세션에서 읽습니다.\npackage.json·package-lock.json·vendor/jev-decision-kit·두 프로젝트 스킬을 함께 커밋하면 다른 환경에서도 npm ci로 설치됩니다.\n상세 안내: https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md`);
+    console.log(`\n패키지·개발 도구 설치 완료: ${target}\n변경: package.json·package-lock.json·node_modules·vendor/jev-decision-kit·두 프로젝트 스킬\n\n앱의 실제 요청 처리는 아직 연결되지 않았습니다.\n남은 작업: 서버 API 키 설정, 업무 질문·실패 정책 정의, TypeSafeClient.systemOne 호출과 응답 검증 구현, 관측 저장\nShadow 수집·주간 이슈/PR·배포는 별도로 구성합니다. 이 설치는 Jev API를 호출하지 않았습니다.\n\nCLI를 시험하려면 이 프로젝트에서 실행하세요:\n  npm run jev -- demo --offline\n  npm run jev -- init  (CLI API 키가 아직 없을 때; 서버 키 설정과 별개)\n  npm run jev -- decide --text "계정 설정을 변경하고 싶어요" --question "계정 지원 문의인가요?" --choices "예,아니오,판단보류"\n\nCodex·Claude Code 프로젝트 스킬은 새 세션에서 읽습니다.\npackage.json·package-lock.json·vendor/jev-decision-kit·두 프로젝트 스킬을 함께 커밋하면 다른 환경에서도 npm ci로 설치됩니다.\n상세 안내: https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md`);
   } catch (error) {
     for (const [file, bytes] of [...snapshots].reverse()) {
       if (bytes === null) rmSync(file, { force: true }); else writeFileSync(file, bytes);

@@ -1,8 +1,8 @@
 {
   "name": "@starhn87/jev-decisions",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Validated Jev decisions for Workers, Deno and Node",
+  "description": "Response validation and observation utilities for the official TypeSafe SDK",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,12 +33,14 @@
   "files": [
     "dist",
     "LICENSE",
-    "THIRD_PARTY_LICENSES",
     "README.md"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "node ../../scripts/build-decisions.mjs",
     "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@typesafe-ai/sdk": "0.6.0"
   }
 }

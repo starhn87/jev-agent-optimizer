@@ -14,12 +14,16 @@ try {
     archive = join(staging, packed.filename);
   }
   execFileSync('tar', ['-xzf', archive, '-C', staging]);
+  const sdkVersion = JSON.parse(readFileSync(join(staging, 'package/package.json'), 'utf8')).peerDependencies['@typesafe-ai/sdk'];
+  writeFileSync(join(staging, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
+  execFileSync('npm', ['install', `@typesafe-ai/sdk@${sdkVersion}`, '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: staging, stdio: 'pipe' });
   const module = pathToFileURL(join(staging, 'package/dist/index.js')).href;
   execFileSync(process.execPath, ['--test', 'tests/compat/worker.test.mjs'], {
-    stdio: 'inherit', env: { ...process.env, JEV_COMPAT_MODULE: module },
+    stdio: 'inherit', env: { ...process.env, JEV_COMPAT_MODULE: module, JEV_COMPAT_SDK_MODULE: join(staging, 'node_modules/@typesafe-ai/sdk/dist/index.mjs') },
   });
   const test = readFileSync('tests/compat/deno.test.ts', 'utf8').replace('../../packages/decisions/dist/index.js', module);
   const testPath = join(staging, 'deno.test.ts');
   writeFileSync(testPath, test);
-  execFileSync('npx', ['--yes', '--package=deno@2.9.5', '--', 'deno', 'test', testPath], { stdio: 'inherit' });
+  writeFileSync(join(staging, 'deno.json'), JSON.stringify({ imports: { '@typesafe-ai/sdk': `npm:@typesafe-ai/sdk@${sdkVersion}` }, nodeModulesDir: 'none' }));
+  execFileSync('npx', ['--yes', '--package=deno@2.9.5', '--', 'deno', 'test', '--config', join(staging, 'deno.json'), testPath], { stdio: 'inherit' });
 } finally { rmSync(staging, { recursive: true, force: true }); }

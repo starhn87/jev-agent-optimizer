@@ -35,7 +35,7 @@ npm run cli -- agent uninstall
 
 `npm run connect -- ../my-app`, run from the clone, **installs packages and development tools; it does not integrate decisions into application request handling**. No toolkit dependency installation or build is required. It supports independent npm projects and workspace roots; it does not migrate other package managers or existing Jev integrations.
 
-It adds the decision library and local CLI to `package.json`, creates a `jev` script, runs `npm install` to update the lockfile and `node_modules` with lifecycle scripts disabled, stores versioned packages and `connection.json` in `vendor/jev-decision-kit/`, and creates Codex/Claude Code project skills. Commit the manifest, lockfile, vendor files and skills for portable `npm ci` installation.
+It adds the official SDK, validation utilities and local CLI to `package.json`, creates a `jev` script, runs `npm install` to update the lockfile and `node_modules` with lifecycle scripts disabled, stores versioned packages and `connection.json` in `vendor/jev-decision-kit/`, and creates Codex/Claude Code project skills. Commit the manifest, lockfile, vendor files and skills for portable `npm ci` installation.
 
 After installation, use `npm run jev -- demo --offline` to test execution or `npm run jev -- decide ...` for a real API call. Server API keys, application questions, fallback policy and caller code still need to be implemented. Shadow collection, weekly issues/PRs and deployment are separate work. The CLI's saved key is not loaded by application servers. See [project integration](https://github.com/starhn87/jev-decision-kit/blob/main/docs/integration.md).
 

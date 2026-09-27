@@ -8,5 +8,5 @@ mkdirSync(new URL('dist/', pkg), { recursive: true });
 await build({ entryPoints: [new URL('src/cli.mjs', pkg).pathname], outfile: new URL('dist/cli.mjs', pkg).pathname,
   bundle: true, platform: 'node', format: 'esm', target: 'node22', legalComments: 'eof' });
 cpSync(new URL('skills/', root), new URL('skills/', pkg), { recursive: true });
-copyFileSync(new URL('packages/decisions/THIRD_PARTY_LICENSES', root), new URL('THIRD_PARTY_LICENSES', pkg));
+copyFileSync(new URL('node_modules/@typesafe-ai/sdk/LICENSE', root), new URL('THIRD_PARTY_LICENSES', pkg));
 chmodSync(new URL('dist/cli.mjs', pkg), 0o755);
