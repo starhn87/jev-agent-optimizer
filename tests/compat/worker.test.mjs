@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Miniflare } from 'miniflare';
 
 test('core runs in an actual Workers isolate with mock transport', async () => {
-  const bundled = await build({ entryPoints: ['tests/compat/worker.mjs'], bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' });
+  const entry = readFileSync('tests/compat/worker.mjs', 'utf8').replace('../../packages/decisions/dist/index.js', process.env.JEV_COMPAT_MODULE ? fileURLToPath(process.env.JEV_COMPAT_MODULE) : '../../packages/decisions/dist/index.js');
+  const bundled = await build({ stdin: { contents: entry, resolveDir: new URL('./', import.meta.url).pathname }, bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022' });
   const mf = new Miniflare({ workers: [{ config: {
     name: 'compat', compatibilityDate: '2026-09-27',
     manifest: { mainModule: 'worker.mjs', modulesRoot: process.cwd(),

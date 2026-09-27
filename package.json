@@ -14,7 +14,7 @@
     "check": "npm run build --workspace @starhn87/jev-decisions && tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs packages/eval/*.test.mjs dist/*.test.js claude-mod/tests/*.test.js",
     "pack:decisions": "npm run build --workspace @starhn87/jev-decisions && npm pack --workspace @starhn87/jev-decisions --pack-destination artifacts",
-    "test:compat": "node --test tests/compat/worker.test.mjs && npx --yes deno@2.9.5 test tests/compat/deno.test.ts"
+    "test:compat": "node scripts/test-compat.mjs"
   },
   "engines": {
     "node": ">=22"

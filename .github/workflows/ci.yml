@@ -37,5 +37,4 @@ jobs:
           deno-version: 2.9.5
       - run: npm ci
       - run: npm run build
-      - run: node --test tests/compat/worker.test.mjs
-      - run: deno test tests/compat/deno.test.ts
+      - run: npm run test:compat
