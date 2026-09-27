@@ -4,7 +4,7 @@
 
 ## 스킬로 할 수 있는 작업
 
-스킬은 로컬 Jev CLI를 호출하고 결과를 확인하는 사용 안내입니다. 에이전트에게 질문·선택지·샘플을 전달하면 판단을 실행하고, 검증된 결과·실패·판단보류를 정리하는 작업에 사용할 수 있습니다. 호출 코드를 따로 작성하지 않고 질문을 시험하거나 기존 관측 데이터를 집계할 때 유용합니다.
+스킬은 에이전트가 읽는 `SKILL.md` Markdown 안내문입니다. 이 저장소의 `jev-utils` 스킬에는 프로젝트의 `npm run jev` 명령, 키 설정 확인, `decide`·`run`으로 샘플 질문 실행, `eval`로 기존 관측 파일 집계, 결과의 `ok`·실패·불확실성 확인 방법이 들어 있습니다. 에이전트에게 질문·선택지·샘플을 전달하면 판단을 실행하고, 검증된 결과·실패·판단보류를 정리하는 작업에 사용할 수 있습니다. 호출 코드를 따로 작성하지 않고 질문을 시험하거나 기존 관측 데이터를 집계할 때 유용합니다.
 
 에이전트는 작업 맥락과 스킬의 `description`을 보고 자동으로 선택할 수 있습니다. 이름을 언급하는 것은 필수가 아닙니다. 작은 선택지 분류·관련성 판단을 시험하거나 정답이 있는 판단 결과를 평가하는 요청에 맞도록 설명을 작성했습니다. 선택 여부는 에이전트가 결정하므로 모든 요청에서 호출되는 것은 아닙니다. [Codex의 명시·자동 선택](https://developers.openai.com/codex/skills/), [Claude Code의 스킬 선택](https://code.claude.com/docs/en/skills).
 
@@ -20,7 +20,7 @@ clone한 Jev Utils 폴더에서:
 npm run connect -- ../my-app
 ```
 
-공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 `.agents/skills/jev-utils/SKILL.md`와 `.claude/skills/jev-utils/SKILL.md`를 생성합니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
+공식 SDK·검증 유틸리티·프로젝트 CLI와 함께 이 저장소의 `skills/jev-utils/SKILL.md`를 `.agents/skills/jev-utils/SKILL.md`와 `.claude/skills/jev-utils/SKILL.md`에 같은 내용으로 복사합니다. TypeSafe 공식 `typesafe-ai` 스킬은 `connect`로 설치하지 않으며 [별도 설치 안내](../README.md#에이전트에서-공식-typesafe-스킬-사용하기)를 따릅니다. 전역 설치나 별도 `agent install`은 필요하지 않습니다. 연결한 프로젝트에서 새 에이전트 세션을 시작하면 스킬을 읽고, CLI는 그 프로젝트의 `npm run jev`로 실행합니다. 스킬과 연결 파일을 프로젝트에 커밋하면 팀원도 같은 방식으로 사용합니다.
 
 프로젝트 스킬과 개인 스킬을 중복 설치할 필요는 없습니다. 여러 저장소에서 공통으로 사용할 개인 스킬이 필요할 때만 아래의 `agent install` 방식을 선택하세요.
 
